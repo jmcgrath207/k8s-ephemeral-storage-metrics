@@ -15,5 +15,5 @@ WORKDIR /
 COPY --from=builder /app .
 COPY --from=builder /go/bin/dlv .
 
-ENTRYPOINT ["/dlv", "exec", "--continue", "--listen=:56268", "--headless=true", "--api-version=2", "--accept-multiclient", "/app"]
+ENTRYPOINT ["/dlv", "exec",  "--listen=:56268", "--headless=true", "--api-version=2", "--accept-multiclient", "/app"]
 

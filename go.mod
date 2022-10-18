@@ -1,8 +1,12 @@
-module github.com/lab.com/recycle-operator
+module k8s-ephemeral-storage-metrics
 
-go 1.17
+go 1.19
 
-require github.com/gorilla/mux v1.8.0
+require (
+	github.com/gorilla/mux v1.8.0
+	github.com/prometheus/client_golang v1.13.0
+	k8s.io/client-go v0.25.3
+)
 
 require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
@@ -27,7 +31,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/prometheus/client_golang v1.13.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
@@ -43,9 +46,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.25.2 // indirect
-	k8s.io/apimachinery v0.25.2 // indirect
-	k8s.io/client-go v0.25.2 // indirect
+	k8s.io/api v0.25.3 // indirect
+	k8s.io/apimachinery v0.25.3 // indirect
 	k8s.io/klog/v2 v2.70.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed // indirect

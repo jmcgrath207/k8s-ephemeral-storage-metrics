@@ -16,7 +16,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 var inCluster string
@@ -110,9 +109,6 @@ func prometheusMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
-	fmt.Printf("Sleeping has begun")
-	time.Sleep(30 * time.Second)
-	fmt.Printf("Sleeping has ended")
 	inCluster = getEnv("IN_CLUSTER", "true")
 	currentNode = getEnv("CURRENT_NODE_NAME", "")
 	getK8sClient()
