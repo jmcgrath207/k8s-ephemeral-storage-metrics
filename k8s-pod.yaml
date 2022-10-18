@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s-ephemeral-storage-metrics
+  namespace: "test"
+spec:
+  containers:
+    - name: k8s-ephemeral-storage-metrics
+      image: k8s-ephemeral-storage-metrics
