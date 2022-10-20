@@ -73,7 +73,8 @@ func getK8sClient() {
 
 func getMetrics() {
 
-	content, err := clientset.RESTClient().Get().AbsPath("/api/v1/nodes/x862.lab.com/proxy/stats/summary").DoRaw(context.Background())
+	currentNode = getEnv("CURRENT_NODE_NAME", "")
+	content, err := clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", currentNode)).DoRaw(context.Background())
 	if err != nil {
 		fmt.Printf("ErrorBadRequst : %s\n", err.Error())
 		os.Exit(1)
@@ -110,7 +111,6 @@ func prometheusMiddleware(next http.Handler) http.Handler {
 
 func main() {
 	inCluster = getEnv("IN_CLUSTER", "true")
-	currentNode = getEnv("CURRENT_NODE_NAME", "")
 	getK8sClient()
 	reg = prometheus.NewRegistry()
 	r := mux.NewRouter()

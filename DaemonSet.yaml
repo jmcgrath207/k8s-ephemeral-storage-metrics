@@ -35,9 +35,6 @@ spec:
             - name: metrics
               containerPort: 9100
               protocol: TCP
-            - containerPort: 56268
-              protocol: TCP
-              name: debug
           env:
             - name: CURRENT_NODE_NAME
               valueFrom:
@@ -55,15 +52,11 @@ metadata:
   labels:
     k8s-app: ephemeral-storage-metrics
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   ports:
     - port: 9100
       targetPort: metrics
       protocol: TCP
       name: metrics
-    - port: 56268
-      targetPort: debug
-      protocol: TCP
-      name: debug
   selector:
     k8s-app: ephemeral-storage-metrics

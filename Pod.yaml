@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k8s-ephemeral-storage-metrics-debug
+
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s-ephemeral-storage-metrics
+  namespace: k8s-ephemeral-storage-metrics-debug
+spec:
+  containers:
+    - name: k8s-ephemeral-storage-metrics
+      image: k8s-ephemeral-storage-metrics
+      resources:
+        limits:
+          memory: 200Mi
+        requests:
+          cpu: 100m
+          memory: 200Mi
+      ports:
+        - name: metrics
+          containerPort: 9100
+          protocol: TCP
+      env:
+        - name: CURRENT_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
