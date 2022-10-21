@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -73,6 +74,15 @@ func getK8sClient() {
 
 func getMetrics() {
 
+	nodes, _ := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+
+	for _, node := range nodes.Items {
+		fmt.Printf("%s\n", node.Name)
+		for _, condition := range node.Status.Conditions {
+			fmt.Printf("\t%s: %s\n", condition.Type, condition.Status)
+		}
+	}
+
 	currentNode = getEnv("CURRENT_NODE_NAME", "")
 	content, err := clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", currentNode)).DoRaw(context.Background())
 	if err != nil {
@@ -118,6 +128,10 @@ func main() {
 	r.Path("/metrics").Handler(promhttp.Handler())
 	port := getEnv("METRICS_PORT", "9100")
 	srv := &http.Server{Addr: fmt.Sprintf("localhost:%v", port), Handler: r}
-	srv.ListenAndServe()
+	err := srv.ListenAndServe()
+	if err != nil {
+		return
+	}
+	fmt.Printf("asdfasdf", inCluster)
 
 }

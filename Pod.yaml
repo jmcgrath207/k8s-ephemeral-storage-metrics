@@ -3,6 +3,46 @@ kind: Namespace
 metadata:
   name: k8s-ephemeral-storage-metrics-debug
 
+
+---
+
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: k8s-ephemeral-storage-metrics-debug
+  name: k8s-ephemeral-storage-metrics
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    k8s-app: k8s-ephemeral-storage-metrics
+  name: k8s-ephemeral-storage-metrics
+  namespace: k8s-ephemeral-storage-metrics-debug
+  
+---
+
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: k8s-ephemeral-storage-metrics
+  namespace: k8s-ephemeral-storage-metrics-debug
+subjects:
+  - kind: ServiceAccount
+    name: k8s-ephemeral-storage-metrics
+    namespace: k8s-ephemeral-storage-metrics-debug
+roleRef:
+  kind: Role
+  name: k8s-ephemeral-storage-metrics
+  apiGroup: rbac.authorization.k8s.io
+
 ---
 
 apiVersion: v1
@@ -10,7 +50,10 @@ kind: Pod
 metadata:
   name: k8s-ephemeral-storage-metrics
   namespace: k8s-ephemeral-storage-metrics-debug
+  labels:
+    k8s-app: k8s-ephemeral-storage-metrics
 spec:
+  serviceAccountName: k8s-ephemeral-storage-metrics
   containers:
     - name: k8s-ephemeral-storage-metrics
       image: k8s-ephemeral-storage-metrics
