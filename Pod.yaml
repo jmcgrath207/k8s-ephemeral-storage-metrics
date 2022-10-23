@@ -6,13 +6,12 @@ metadata:
 
 ---
 
-kind: Role
+kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  namespace: k8s-ephemeral-storage-metrics-debug
-  name: k8s-ephemeral-storage-metrics
+  name: k8s-ephemeral-storage-metrics-debug
 rules:
-  - apiGroups: ["*"]
+  - apiGroups: [""]
     resources: ["*"]
     verbs: ["*"]
 
@@ -29,18 +28,17 @@ metadata:
   
 ---
 
-kind: RoleBinding
+kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: k8s-ephemeral-storage-metrics
-  namespace: k8s-ephemeral-storage-metrics-debug
+  name: k8s-ephemeral-storage-metrics-debug
 subjects:
   - kind: ServiceAccount
     name: k8s-ephemeral-storage-metrics
     namespace: k8s-ephemeral-storage-metrics-debug
 roleRef:
-  kind: Role
-  name: k8s-ephemeral-storage-metrics
+  kind: ClusterRole
+  name: k8s-ephemeral-storage-metrics-debug
   apiGroup: rbac.authorization.k8s.io
 
 ---
@@ -72,3 +70,27 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+
+
+---
+
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: k8s-ephemeral-storage-metrics-debug
+  # Change this to the namespace the Prometheus instance is running in
+  namespace: monitoring
+  labels:
+    release: kube-prometheus
+    k8s-app: k8s-ephemeral-storage-metrics
+spec:
+  namespaceSelector:
+    matchNames:
+      - k8s-ephemeral-storage-metrics-debug
+  selector:
+    matchLabels:
+      k8s-app: k8s-ephemeral-storage-metrics
+      release: kube-prometheus
+  podMetricsEndpoints:
+    - port: metrics
+      interval: 15s
