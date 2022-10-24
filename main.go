@@ -9,6 +9,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -23,8 +25,6 @@ var clientset *kubernetes.Clientset
 var reg *prometheus.Registry
 var currentNode string
 
-// kubectl get --raw "/api/v1/nodes/x861.lab.com/proxy/stats/summary" | less
-
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
@@ -33,6 +33,7 @@ func getEnv(key, fallback string) string {
 }
 
 func getK8sClient() {
+	inCluster = getEnv("IN_CLUSTER", "true")
 
 	if inCluster == "true" {
 
@@ -109,8 +110,22 @@ func prometheusMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func setLogger() {
+	logLevel := getEnv("LOG_LEVEL", "info")
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	level, err := zerolog.ParseLevel(logLevel)
+	if err != nil {
+		panic(err.Error())
+	}
+	zerolog.SetGlobalLevel(level)
+	log.Debug().Msg("test message debug")
+	log.Info().Msg("test message info")
+
+}
+
 func main() {
-	inCluster = getEnv("IN_CLUSTER", "true")
+	flag.Parse()
+	setLogger()
 	getK8sClient()
 	reg = prometheus.NewRegistry()
 	r := mux.NewRouter()
@@ -120,8 +135,7 @@ func main() {
 	srv := &http.Server{Addr: fmt.Sprintf("localhost:%v", port), Handler: r}
 	err := srv.ListenAndServe()
 	if err != nil {
-		return
+		panic(err.Error())
 	}
-	fmt.Printf("asdfasdf", inCluster)
 
 }

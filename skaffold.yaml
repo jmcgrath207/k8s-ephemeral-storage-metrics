@@ -4,14 +4,44 @@ build:
   artifacts:
     - image: k8s-ephemeral-storage-metrics
       docker:
-        dockerfile: DockerfileDebug
+        dockerfile: Dockerfile
 
-deploy:
-  kubectl:
-    manifests:
-      - DaemonSet*
+
 profiles:
+  - name: staging
+    deploy:
+      helm:
+        releases:
+          - name: k8s-ephemeral-storage-metrics-staging
+            namespace: k8s-ephemeral-storage-metrics-staging
+            createNamespace: true
+            chartPath: 'charts/k8s-ephemeral-storage-metrics'
+            artifactOverrides:
+              image: k8s-ephemeral-storage-metrics
+    portForward:
+      - resourceType: Pod
+        resourceName: k8s-ephemeral-storage-metrics
+        namespace: k8s-ephemeral-storage-metrics-debug
+        port: 9100
+        localPort: 9100
+
   - name: dev
+    deploy:
+      kubectl:
+        manifests:
+          - Pod.yaml
+    portForward:
+      - resourceType: Pod
+        resourceName: k8s-ephemeral-storage-metrics
+        namespace: k8s-ephemeral-storage-metrics-debug
+        port: 9100
+        localPort: 9100
+
+  - name: debug
+    deploy:
+      kubectl:
+        manifests:
+          - Pod.yaml
     portForward:
       - resourceType: Pod
         resourceName: k8s-ephemeral-storage-metrics
@@ -22,7 +52,4 @@ profiles:
       - op: replace
         path: /build/artifacts/0/docker/dockerfile
         value: DockerfileDebug
-      - op: replace
-        path: /deploy/kubectl/manifests/0
-        value: Pod.yaml
 
