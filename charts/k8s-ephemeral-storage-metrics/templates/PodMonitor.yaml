@@ -17,4 +17,4 @@ spec:
       k8s-app: {{ .Release.Name }}
       release: kube-prometheus
   podMetricsEndpoints:
-    - port: metrics
+    - port: "9100"

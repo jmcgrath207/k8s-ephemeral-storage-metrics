@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 var inCluster string
@@ -39,13 +40,16 @@ func getK8sClient() {
 
 		config, err := rest.InClusterConfig()
 		if err != nil {
+			log.Error().Msg("Failed to get rest config for in cluster client")
 			panic(err.Error())
 		}
 		// creates the clientset
 		clientset, err = kubernetes.NewForConfig(config)
 		if err != nil {
+			log.Error().Msg("Failed to get client set for in cluster client")
 			panic(err.Error())
 		}
+		log.Debug().Msg("Successful got the in cluster client")
 
 	} else {
 
@@ -74,12 +78,14 @@ func getK8sClient() {
 
 func getMetrics() {
 
+	log.Debug().Msg(fmt.Sprintf("getMetrics has been invoked"))
 	currentNode = getEnv("CURRENT_NODE_NAME", "")
 	content, err := clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", currentNode)).DoRaw(context.Background())
 	if err != nil {
-		fmt.Printf("ErrorBadRequst : %s\n", err.Error())
+		log.Error().Msg(fmt.Sprintf("ErrorBadRequst : %s\n", err.Error()))
 		os.Exit(1)
 	}
+	log.Debug().Msg(fmt.Sprintf("Fetched proxy stats from node : %s", currentNode))
 	var raw map[string]interface{}
 	_ = json.Unmarshal(content, &raw)
 
@@ -95,6 +101,9 @@ func getMetrics() {
 			ConstLabels: prometheus.Labels{"pod_name": pod_name, "node_name": nodeName},
 		})
 
+		// ERROR
+		// 2022/10/25 04:22:23 http: panic serving 127.0.0.1:47698: duplicate metrics collector registration attempted
+		// TODO: https://github.com/prometheus/client_golang/issues/716
 		prometheus.MustRegister(opsQueued)
 
 		usedBytes := element.(map[string]interface{})["ephemeral-storage"].(map[string]interface{})["usedBytes"].(float64)
@@ -104,10 +113,20 @@ func getMetrics() {
 }
 
 func prometheusMiddleware(next http.Handler) http.Handler {
+	log.Debug().Msg("Invoked prometheusMiddleware")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		getMetrics()
 		next.ServeHTTP(w, r)
 	})
+}
+
+type LineInfoHook struct{}
+
+func (h LineInfoHook) Run(e *zerolog.Event, l zerolog.Level, msg string) {
+	_, file, line, ok := runtime.Caller(0)
+	if ok {
+		e.Str("line", fmt.Sprintf("%s:%d", file, line))
+	}
 }
 
 func setLogger() {
@@ -118,8 +137,7 @@ func setLogger() {
 		panic(err.Error())
 	}
 	zerolog.SetGlobalLevel(level)
-	log.Debug().Msg("test message debug")
-	log.Info().Msg("test message info")
+	log.Hook(LineInfoHook{})
 
 }
 
@@ -135,6 +153,7 @@ func main() {
 	srv := &http.Server{Addr: fmt.Sprintf("localhost:%v", port), Handler: r}
 	err := srv.ListenAndServe()
 	if err != nil {
+		log.Error().Msg(fmt.Sprintf("Listener Falied : %s\n", err.Error()))
 		panic(err.Error())
 	}
 

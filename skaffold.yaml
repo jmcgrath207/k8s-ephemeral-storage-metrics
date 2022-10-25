@@ -1,3 +1,4 @@
+# REF https://skaffold.dev/docs/references/yaml/?version=v2beta29
 apiVersion: skaffold/v2beta29
 kind: Config
 build:
@@ -18,34 +19,35 @@ profiles:
             chartPath: 'charts/k8s-ephemeral-storage-metrics'
             artifactOverrides:
               image: k8s-ephemeral-storage-metrics
+            overrides:
+              log_level: debug
+              deploy_type: Deployment
+
     portForward:
-      - resourceType: Pod
+      - resourceType: Deployment
         resourceName: k8s-ephemeral-storage-metrics
-        namespace: k8s-ephemeral-storage-metrics-debug
+        namespace: k8s-ephemeral-storage-metrics-staging
         port: 9100
         localPort: 9100
 
   - name: dev
     deploy:
-      kubectl:
-        manifests:
-          - Pod.yaml
-    portForward:
-      - resourceType: Pod
-        resourceName: k8s-ephemeral-storage-metrics
-        namespace: k8s-ephemeral-storage-metrics-debug
-        port: 9100
-        localPort: 9100
+      helm:
+        releases:
+          - name: k8s-ephemeral-storage-metrics-dev
+            namespace: k8s-ephemeral-storage-metrics-dev
+            createNamespace: true
+            chartPath: 'charts/k8s-ephemeral-storage-metrics'
+            artifactOverrides:
+              image: k8s-ephemeral-storage-metrics
+            overrides:
+              log_level: debug
+              deploy_type: Deployment
 
-  - name: debug
-    deploy:
-      kubectl:
-        manifests:
-          - Pod.yaml
     portForward:
-      - resourceType: Pod
+      - resourceType: Deployment
         resourceName: k8s-ephemeral-storage-metrics
-        namespace: k8s-ephemeral-storage-metrics-debug
+        namespace: k8s-ephemeral-storage-metrics-dev
         port: 9100
         localPort: 9100
     patches:

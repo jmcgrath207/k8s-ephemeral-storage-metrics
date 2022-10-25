@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: {{ .Values.deploy_type  }}
+metadata:
+  name: k8s-ephemeral-storage-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: {{ .Release.Name }}
+spec:
+  {{- if eq .Values.deploy_type "Deployment" }}
+  replicas: 1
+  {{- end }}
+  selector:
+    matchLabels:
+      k8s-app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        k8s-app: {{ .Release.Name }}
+    spec:
+      serviceAccountName: k8s-ephemeral-storage-metrics
+      containers:
+        - name: metrics
+          image: {{ .Values.image }}
+          resources:
+            limits:
+              memory: 200Mi
+            requests:
+              cpu: 100m
+              memory: 200Mi
+          ports:
+            - name: metrics
+              containerPort: 9100
+              protocol: TCP
+          #          livenessProbe:
+          #            failureThreshold: 10
+          #            httpGet:
+          #              path: /metrics
+          #              port: 9100
+          #              scheme: HTTP
+          #            initialDelaySeconds: 10
+          #            periodSeconds: 10
+          #            successThreshold: 1
+          #            timeoutSeconds: 30
+          #          readinessProbe:
+          #            failureThreshold: 10
+          #            httpGet:
+          #              path: /metrics
+          #              port: 9100
+          #              scheme: HTTP
+          #            periodSeconds: 10
+          #            successThreshold: 1
+          #            timeoutSeconds: 1
+          env:
+            - name: LOG_LEVEL
+              value: "{{ .Values.log_level }}"
+            - name: CURRENT_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+
