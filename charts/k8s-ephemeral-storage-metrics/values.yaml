@@ -1,5 +1,2 @@
 image: registry.lab.com/k8s-ephemeral-storage-metrics
 log_level: info
-
-prometheus_operator:
-  namespace: monitoring

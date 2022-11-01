@@ -1,10 +1,10 @@
-
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
+# https://doc.crds.dev/github.com/prometheus-operator/kube-prometheus/monitoring.coreos.com/PodMonitor/v1@v0.7.0
 metadata:
-  name: k8s-ephemeral-storage-metrics
+  name: {{ .Release.Name }}
   # Change this to the namespace the Prometheus instance is running in
-  namespace: {{ .Values.prometheus_operator.namespace }}
+  namespace: {{ .Release.Namespace }}
   labels:
     release: kube-prometheus
     k8s-app: {{ .Release.Name }}
@@ -17,4 +17,13 @@ spec:
       k8s-app: {{ .Release.Name }}
       release: kube-prometheus
   podMetricsEndpoints:
-    - port: "9100"
+    - port: http
+      path: /metrics
+      interval: 15s
+      honorLabels: true
+      metricRelabelings:
+        - action: replace
+          sourceLabels:
+            - __meta_kubernetes_pod_host_ip
+          targetLabel: instance
+
