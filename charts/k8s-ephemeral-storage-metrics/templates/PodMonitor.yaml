@@ -15,15 +15,15 @@ spec:
   selector:
     matchLabels:
       k8s-app: {{ .Release.Name }}
-      release: kube-prometheus
   podMetricsEndpoints:
     - port: http
-      path: /metrics
       interval: 15s
-      honorLabels: true
-      metricRelabelings:
+      relabelings:
+        - action: replace
+          sourceLabels:
+            - __meta_kubernetes_pod_node_name
+          targetLabel: node_name
         - action: replace
           sourceLabels:
             - __meta_kubernetes_pod_host_ip
           targetLabel: instance
-
