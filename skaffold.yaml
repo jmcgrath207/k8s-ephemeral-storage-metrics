@@ -21,7 +21,7 @@ profiles:
               image: k8s-ephemeral-storage-metrics
             overrides:
               log_level: debug
-              deploy_type: Deployment
+              deploy_type: DaemonSet
 
     portForward:
       - resourceType: Deployment
