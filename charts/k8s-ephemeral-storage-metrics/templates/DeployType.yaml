@@ -5,6 +5,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: {{ .Release.Name }}
+  {{- if .Values.deploy_annotations }}
+  annotations:
+    {{- .Values.deploy_annotations | toYaml | nindent 4 }}
+  {{- end }}
 spec:
   {{- if eq .Values.deploy_type "Deployment" }}
   replicas: 1
@@ -20,7 +24,7 @@ spec:
       serviceAccountName: k8s-ephemeral-storage-metrics
       containers:
         - name: metrics
-          image: {{ .Values.image | default "registry.lab.com/k8s-ephemeral-storage-metrics" }}
+          image: {{ .Values.image | default "placeholder" }}
           resources:
             limits:
               memory: 200Mi
