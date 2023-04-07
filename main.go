@@ -23,6 +23,7 @@ import (
 var inCluster string
 var clientset *kubernetes.Clientset
 var currentNode string
+var currentPod string
 
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
@@ -92,6 +93,7 @@ func getMetrics() {
 
 	log.Debug().Msg(fmt.Sprintf("getMetrics has been invoked"))
 	currentNode = getEnv("CURRENT_NODE_NAME", "")
+	currentPod = getEnv("CURRENT_POD_NAME", "")
 	for {
 		content, err := clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", currentNode)).DoRaw(context.Background())
 		if err != nil {
@@ -106,11 +108,13 @@ func getMetrics() {
 		for _, element := range raw["pods"].([]interface{}) {
 
 			podName := element.(map[string]interface{})["podRef"].(map[string]interface{})["name"].(string)
-			usedBytes := element.(map[string]interface{})["ephemeral-storage"].(map[string]interface{})["usedBytes"].(float64)
+			if currentPod != podName {
+				usedBytes := element.(map[string]interface{})["ephemeral-storage"].(map[string]interface{})["usedBytes"].(float64)
 
-			opsQueued.With(prometheus.Labels{"pod_name": podName, "node_name": nodeName}).Set(usedBytes)
+				opsQueued.With(prometheus.Labels{"pod_name": podName, "node_name": nodeName}).Set(usedBytes)
 
-			log.Debug().Msg(fmt.Sprintf("pod %s on %s with usedBytes: %s", podName, nodeName, usedBytes))
+				log.Debug().Msg(fmt.Sprintf("pod %s on %s with usedBytes: %s", podName, nodeName, usedBytes))
+			}
 		}
 
 		time.Sleep(15 * time.Second)
