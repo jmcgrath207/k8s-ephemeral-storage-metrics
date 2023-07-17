@@ -3,7 +3,6 @@ module k8s-ephemeral-storage-metrics
 go 1.19
 
 require (
-	github.com/gorilla/mux v1.8.0
 	github.com/prometheus/client_golang v1.13.0
 	github.com/rs/zerolog v1.28.0
 	k8s.io/client-go v0.25.3
