@@ -6,7 +6,7 @@ metadata:
   # Change this to the namespace the Prometheus instance is running in
   namespace: {{ .Release.Namespace }}
   labels:
-    release: kube-prometheus
+    release: {{ .Values.prometheus.release }}
     k8s-app: {{ .Release.Name }}
 spec:
   namespaceSelector:
