@@ -17,7 +17,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"runtime/debug"
 	"strconv"
 	"time"
 )
@@ -27,19 +26,9 @@ var (
 	clientset      *kubernetes.Clientset
 	currentNode    string
 	sampleInterval int
+
+	Commit string
 )
-
-var Commit = func() string {
-	if info, ok := debug.ReadBuildInfo(); ok {
-		for _, setting := range info.Settings {
-			if setting.Key == "vcs.revision" {
-				return setting.Value
-			}
-		}
-	}
-
-	return ""
-}()
 
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
