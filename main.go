@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"time"
 )
@@ -27,6 +28,18 @@ var (
 	currentNode    string
 	sampleInterval int
 )
+
+var Commit = func() string {
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				return setting.Value
+			}
+		}
+	}
+
+	return ""
+}()
 
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
@@ -123,7 +136,6 @@ func getMetrics() {
 			os.Exit(1)
 		}
 		log.Debug().Msg(fmt.Sprintf("Fetched proxy stats from node : %s", currentNode))
-		//var raw map[string]interface{}
 		var data ephemeralStorageMetrics
 		_ = json.Unmarshal(content, &data)
 
@@ -173,11 +185,10 @@ func main() {
 	go getMetrics()
 	port := getEnv("METRICS_PORT", "9100")
 	http.Handle("/metrics", promhttp.Handler())
-	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s", port))
+	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s (version=%s)", port, Commit))
 	err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 	if err != nil {
 		log.Error().Msg(fmt.Sprintf("Listener Failed : %s\n", err.Error()))
 		panic(err.Error())
 	}
-
 }
