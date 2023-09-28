@@ -17,12 +17,16 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"time"
 )
 
-var inCluster string
-var clientset *kubernetes.Clientset
-var currentNode string
+var (
+	inCluster      string
+	clientset      *kubernetes.Clientset
+	currentNode    string
+	sampleInterval int
+)
 
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
@@ -74,6 +78,23 @@ func getK8sClient() {
 	}
 }
 
+type ephemeralStorageMetrics struct {
+	Node struct {
+		NodeName string `json:"nodeName"`
+	}
+	Pods []struct {
+		PodRef struct {
+			Name      string `json:"name"`
+			Namespace string `json:"namespace"`
+		}
+		EphemeralStorage struct {
+			AvailableBytes float64 `json:"availableBytes"`
+			CapacityBytes  float64 `json:"capacityBytes"`
+			UsedBytes      float64 `json:"usedBytes"`
+		} `json:"ephemeral-storage"`
+	}
+}
+
 func getMetrics() {
 
 	opsQueued := prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -94,6 +115,7 @@ func getMetrics() {
 
 	log.Debug().Msg(fmt.Sprintf("getMetrics has been invoked"))
 	currentNode = getEnv("CURRENT_NODE_NAME", "")
+	sampleInterval, _ = strconv.Atoi(getEnv("SCRAPE_INTERVAL", "15"))
 	for {
 		content, err := clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", currentNode)).DoRaw(context.Background())
 		if err != nil {
@@ -101,22 +123,25 @@ func getMetrics() {
 			os.Exit(1)
 		}
 		log.Debug().Msg(fmt.Sprintf("Fetched proxy stats from node : %s", currentNode))
-		var raw map[string]interface{}
-		_ = json.Unmarshal(content, &raw)
+		//var raw map[string]interface{}
+		var data ephemeralStorageMetrics
+		_ = json.Unmarshal(content, &data)
 
-		nodeName := raw["node"].(map[string]interface{})["nodeName"].(string)
-		for _, element := range raw["pods"].([]interface{}) {
-			ref := element.(map[string]interface{})["podRef"].(map[string]interface{})
-			podName := ref["name"].(string)
-			podNamespace := ref["namespace"].(string)
-			usedBytes := element.(map[string]interface{})["ephemeral-storage"].(map[string]interface{})["usedBytes"].(float64)
-
+		nodeName := data.Node.NodeName
+		for _, pod := range data.Pods {
+			podName := pod.PodRef.Name
+			podNamespace := pod.PodRef.Namespace
+			usedBytes := pod.EphemeralStorage.UsedBytes
+			if podNamespace == "" || (usedBytes == 0 && pod.EphemeralStorage.AvailableBytes == 0 && pod.EphemeralStorage.CapacityBytes == 0) {
+				log.Warn().Msg(fmt.Sprintf("pod %s/%s on %s has no metrics on its ephemeral storage usage", podName, podNamespace, nodeName))
+				log.Warn().Msg(fmt.Sprintf("raw content %v", content))
+			}
 			opsQueued.With(prometheus.Labels{"pod_namespace": podNamespace, "pod_name": podName, "node_name": nodeName}).Set(usedBytes)
 
 			log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
 		}
 
-		time.Sleep(15 * time.Second)
+		time.Sleep(time.Duration(sampleInterval) * time.Second)
 	}
 }
 
