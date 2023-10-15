@@ -6,7 +6,7 @@
 set -e
 
 
-package=k8s-ephermeral-storage-metrics
+package=k8s-ephemeral-storage-metrics
 
 if [ -z "$VERSION" ]; then
   echo "The VERSION env is not set."
