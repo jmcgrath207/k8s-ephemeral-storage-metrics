@@ -1,5 +1,10 @@
 ## Helm Install
 
+```bash
+helm repo add k8s-ephemeral-storage-metrics https://jmcgrath207.github.io/k8s-ephemeral-storage-metrics/chart
+helm install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral-storage-metrics
+```
+
 ## Values
 
 | Key | Type | Default | Description |
@@ -7,13 +12,18 @@
 | deploy_type | string | `"DaemonSet"` |  |
 | dev.enabled | bool | `false` |  |
 | image.imagePullPolicy | string | `"ifNotPresent"` |  |
-| image.repository | string | `"registry.lab.com/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"asdf"` |  |
+| image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephermeral-storage-metrics"` |  |
+| image.tag | string | `"1.0.0"` |  |
 | interval | int | `15` |  |
 | log_level | string | `"info"` |  |
-| prometheus.release | string | `"kube-prometheus"` |  |
+| prometheus.release | string | `"kube-prometheus-stack"` |  |
 
 ## Contribute
+
+### Start Kind
+```bash
+make new_kind
+```
 
 ### Run locally
 ```bash

@@ -1,8 +1,18 @@
 ## Helm Install
 
+```bash
+helm repo add k8s-ephemeral-storage-metrics https://jmcgrath207.github.io/k8s-ephemeral-storage-metrics/chart
+helm install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral-storage-metrics
+```
+
 {{ template "chart.valuesSection" . }}
 
 ## Contribute
+
+### Start Kind
+```bash
+make new_kind
+```
 
 ### Run locally
 ```bash

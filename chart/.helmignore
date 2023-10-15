@@ -21,3 +21,4 @@
 *.tmproj
 .vscode/
 README.md.gotmpl
+*.tgz

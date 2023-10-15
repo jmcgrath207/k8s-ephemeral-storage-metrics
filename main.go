@@ -144,6 +144,7 @@ func getMetrics() {
 			log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
 		}
 
+		// TODO: Fix Sleep time for polling.
 		elapsedTime := time.Now().Sub(start).Milliseconds() / 1000
 		adjustTime := sampleInterval - elapsedTime
 		log.Debug().Msgf("Adjusted Poll time: %d seconds", adjustTime)

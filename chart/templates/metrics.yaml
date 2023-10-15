@@ -3,10 +3,6 @@ kind: ServiceMonitor
 metadata:
   name: k8s-ephemeral-storage-metrics
   labels:
-    app.kubernetes.io/component: metrics
-    app.kubernetes.io/created-by: par
-    app.kubernetes.io/part-of: par
-    control-plane: controller-manager
   {{- include "chart.labels" . | nindent 4 }}
 spec:
   endpoints:
@@ -19,7 +15,7 @@ spec:
       - {{ .Release.Namespace }}
   selector:
     matchLabels:
-      control-plane: controller-manager
+      {{- include "chart.selectorLabels" . | nindent 6 }}
 
 ---
 
@@ -28,7 +24,7 @@ kind: Service
 metadata:
   name: k8s-ephemeral-storage-metrics
   labels:
-  {{- include "chart.labels" . | nindent 4 }}
+    {{- include "chart.labels" . | nindent 6 }}
 spec:
   type: ClusterIP
   selector:

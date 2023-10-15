@@ -1,14 +1,16 @@
-{{ if .Values.dev }}
+{{ if .Values.dev.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
   name: debug
   labels:
-  {{- include "chart.labels" . | nindent 4 }}
+    {{- include "chart.labels" . | nindent 4 }}
+    app.kubernetes.io/name: k8s-ephemeral-storage-metrics-debug
 spec:
   type: NodePort
   selector:
-  {{- include "chart.selectorLabels" . | nindent 6 }}
+    {{- include "chart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/name: k8s-ephemeral-storage-metrics-debug
   ports:
     - protocol: TCP
       port: 9999

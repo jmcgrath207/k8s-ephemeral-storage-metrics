@@ -1,13 +1,13 @@
 image:
-  repository: registry.lab.com/k8s-ephemeral-storage-metrics
-  tag: "asdf"
+  repository: ghcr.io/jmcgrath207/k8s-ephermeral-storage-metrics
+  tag: 1.0.0
   imagePullPolicy: ifNotPresent
 log_level: info
 deploy_type: DaemonSet
 # Note in testing, Kube API does not refresh faster than 10 seconds
 interval: 15 # Seconds
 prometheus:
-  release: kube-prometheus
+  release: kube-prometheus-stack
 
 # For local development and testing
 dev:
