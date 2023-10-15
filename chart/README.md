@@ -1,19 +1,15 @@
 ## Helm Install
 
-```bash
-helm repo add par https://jmcgrath207.github.io/par/chart
-helm install par par/Par
-```
-
 ## Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | deploy_type | string | `"DaemonSet"` |  |
+| dev.enabled | bool | `false` |  |
 | image.imagePullPolicy | string | `"ifNotPresent"` |  |
 | image.repository | string | `"registry.lab.com/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `""` |  |
-| interval | string | `"15s"` |  |
+| image.tag | string | `"asdf"` |  |
+| interval | int | `15` |  |
 | log_level | string | `"info"` |  |
 | prometheus.release | string | `"kube-prometheus"` |  |
 

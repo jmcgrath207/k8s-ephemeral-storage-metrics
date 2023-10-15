@@ -1,6 +1,9 @@
 # K8s Ephemeral Storage Metrics.
 
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Actions Status](https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/workflows/ci/badge.svg)](https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/actions)
+
 The goal of this project is to export ephemeral storage metric usage per pod to Prometheus that is address in this 
 issue [Here](https://github.com/kubernetes/kubernetes/issues/69507)
 
@@ -12,20 +15,16 @@ Currently, this image is not being hosted and so you have to build it yourself a
 
 ## Helm Install
 
-```bash
-helm repo add par https://jmcgrath207.github.io/par/chart
-helm install par par/Par
-```
-
 ## Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | deploy_type | string | `"DaemonSet"` |  |
+| dev.enabled | bool | `false` |  |
 | image.imagePullPolicy | string | `"ifNotPresent"` |  |
 | image.repository | string | `"registry.lab.com/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `""` |  |
-| interval | string | `"15s"` |  |
+| image.tag | string | `"asdf"` |  |
+| interval | int | `15` |  |
 | log_level | string | `"info"` |  |
 | prometheus.release | string | `"kube-prometheus"` |  |
 
