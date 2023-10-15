@@ -1,19 +1,22 @@
-FROM golang:1.19.2 as builder
+FROM golang:1.21 as builder
 
 WORKDIR /code
 
 COPY . .
 
 RUN go mod download
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
 RUN go build -gcflags="all=-N -l"  -o /app main.go
 
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
-
-FROM debian:buster
-ENV GOTRACEBACK=single
+FROM nicolaka/netshoot:latest
+ENV GOTRACEBACK=crash
 WORKDIR /
 COPY --from=builder /app .
 COPY --from=builder /go/bin/dlv .
 
-ENTRYPOINT ["/dlv", "exec",  "--listen=:56268", "--headless=true", "--api-version=2", "--accept-multiclient", "/app"]
+ENV LOG_LEVEL=debug
+EXPOSE 9999
+
+ENTRYPOINT ["/dlv", "exec",  "--listen=:9999", "--headless=true", "--api-version=2", "--accept-multiclient", "/app"]
+#ENTRYPOINT ["/dlv", "exec",  "--listen=:9999", "--headless=true", "--api-version=2", "--accept-multiclient", "/app"]
 
