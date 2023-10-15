@@ -2,7 +2,7 @@
 
 ```bash
 helm repo add k8s-ephemeral-storage-metrics https://jmcgrath207.github.io/k8s-ephemeral-storage-metrics/chart
-helm install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral-storage-metrics
+helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral-storage-metrics
 ```
 
 {{ template "chart.valuesSection" . }}
