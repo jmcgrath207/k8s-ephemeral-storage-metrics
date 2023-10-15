@@ -3,6 +3,8 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: k8s-ephemeral-storage-metrics
+  labels:
+  {{- include "chart.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["nodes/proxy"]
@@ -15,6 +17,7 @@ kind: ServiceAccount
 metadata:
   labels:
     k8s-app: {{ .Release.Name }}
+  {{- include "chart.labels" . | nindent 4 }}
   name: k8s-ephemeral-storage-metrics
   namespace: {{ .Release.Namespace }}
 
@@ -24,6 +27,8 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: k8s-ephemeral-storage-metrics
+  labels:
+  {{- include "chart.labels" . | nindent 4 }}
 subjects:
   - kind: ServiceAccount
     name: k8s-ephemeral-storage-metrics

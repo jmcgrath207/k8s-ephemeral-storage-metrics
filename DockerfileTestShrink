@@ -1,0 +1,7 @@
+FROM ubuntu:22.04
+RUN apt-get update -y && apt-get install watch
+
+COPY tests/scripts/shrinking_epheremal_storage.sh shrinking_epheremal_storage.sh
+
+SHELL ["/usr/bin/bash", "-c"]
+ENTRYPOINT ["./shrinking_epheremal_storage.sh"]

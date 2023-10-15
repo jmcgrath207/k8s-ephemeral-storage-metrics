@@ -1,0 +1,43 @@
+{{ if .Values.dev }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shrink-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: shrink-test
+  template:
+    metadata:
+      name: shrink-test
+      labels:
+        name: shrink-test
+    spec:
+      containers:
+        - image: local.io/local/shrink-test:latest
+          imagePullPolicy: Never
+          name: shrink-test
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grow-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: grow-test
+  template:
+    metadata:
+      name: grow-test
+      labels:
+        name: grow-test
+    spec:
+      containers:
+        - image: local.io/local/grow-test:latest
+          imagePullPolicy: Never
+          name: grow-test
+ {{ end }}

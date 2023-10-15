@@ -4,27 +4,28 @@ metadata:
   name: k8s-ephemeral-storage-metrics
   namespace: {{ .Release.Namespace }}
   labels:
-    k8s-app: {{ .Release.Name }}
+  {{- include "chart.labels" . | nindent 4 }}
 spec:
   {{- if eq .Values.deploy_type "Deployment" }}
   replicas: 1
   {{- end }}
   selector:
     matchLabels:
-      k8s-app: {{ .Release.Name }}
+  {{- include "chart.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        k8s-app: {{ .Release.Name }}
+      {{- include "chart.labels" . | nindent 8 }}
     spec:
       serviceAccountName: k8s-ephemeral-storage-metrics
       containers:
         - name: metrics
-          image: {{ .Values.image }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.imagePullPolicy }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           ports:
-            - name: http
+            - name: metrics
               containerPort: 9100
               protocol: TCP
           livenessProbe:
@@ -47,6 +48,8 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
           env:
+            - name: SCRAPE_INTERVAL
+              value: "{{ .Values.interval }}"
             - name: LOG_LEVEL
               value: "{{ .Values.log_level }}"
             - name: CURRENT_NODE_NAME

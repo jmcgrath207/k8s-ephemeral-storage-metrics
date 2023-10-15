@@ -25,9 +25,7 @@ var (
 	inCluster      string
 	clientset      *kubernetes.Clientset
 	currentNode    string
-	sampleInterval int
-
-	Commit string
+	sampleInterval int64
 )
 
 func getEnv(key, fallback string) string {
@@ -117,8 +115,10 @@ func getMetrics() {
 
 	log.Debug().Msg(fmt.Sprintf("getMetrics has been invoked"))
 	currentNode = getEnv("CURRENT_NODE_NAME", "")
-	sampleInterval, _ = strconv.Atoi(getEnv("SCRAPE_INTERVAL", "15"))
+	sampleInterval, _ = strconv.ParseInt(getEnv("SCRAPE_INTERVAL", "15"), 2, 64)
 	for {
+		start := time.Now()
+
 		content, err := clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", currentNode)).DoRaw(context.Background())
 		if err != nil {
 			log.Error().Msg(fmt.Sprintf("ErrorBadRequst : %s\n", err.Error()))
@@ -127,6 +127,8 @@ func getMetrics() {
 		log.Debug().Msg(fmt.Sprintf("Fetched proxy stats from node : %s", currentNode))
 		var data ephemeralStorageMetrics
 		_ = json.Unmarshal(content, &data)
+
+		opsQueued.Reset() // reset this metrics in the Exporter
 
 		nodeName := data.Node.NodeName
 		for _, pod := range data.Pods {
@@ -142,7 +144,11 @@ func getMetrics() {
 			log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
 		}
 
-		time.Sleep(time.Duration(sampleInterval) * time.Second)
+		elapsedTime := time.Now().Sub(start).Milliseconds() / 1000
+		adjustTime := sampleInterval - elapsedTime
+		log.Debug().Msgf("Adjusted Poll time: %d seconds", adjustTime)
+		log.Debug().Msgf("Time Now: %d mil", elapsedTime)
+		time.Sleep(time.Duration(adjustTime) * time.Second)
 	}
 }
 
@@ -174,7 +180,7 @@ func main() {
 	go getMetrics()
 	port := getEnv("METRICS_PORT", "9100")
 	http.Handle("/metrics", promhttp.Handler())
-	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s (version=%s)", port, Commit))
+	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s", port))
 	err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 	if err != nil {
 		log.Error().Msg(fmt.Sprintf("Listener Failed : %s\n", err.Error()))

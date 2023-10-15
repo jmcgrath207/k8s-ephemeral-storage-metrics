@@ -1,0 +1,17 @@
+{{ if .Values.dev }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: debug
+  labels:
+  {{- include "chart.labels" . | nindent 4 }}
+spec:
+  type: NodePort
+  selector:
+  {{- include "chart.selectorLabels" . | nindent 6 }}
+  ports:
+    - protocol: TCP
+      port: 9999
+      targetPort: 9999
+      nodePort: 30002
+ {{ end }}
