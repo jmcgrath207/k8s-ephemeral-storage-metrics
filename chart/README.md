@@ -11,7 +11,7 @@ helm install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral-storage-m
 |-----|------|---------|-------------|
 | deploy_type | string | `"DaemonSet"` |  |
 | dev.enabled | bool | `false` |  |
-| image.imagePullPolicy | string | `"ifNotPresent"` |  |
+| image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephermeral-storage-metrics"` |  |
 | image.tag | string | `"1.0.0"` |  |
 | interval | int | `15` |  |

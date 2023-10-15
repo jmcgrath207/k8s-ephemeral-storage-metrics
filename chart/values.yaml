@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/jmcgrath207/k8s-ephermeral-storage-metrics
   tag: 1.0.0
-  imagePullPolicy: ifNotPresent
+  imagePullPolicy: IfNotPresent
 log_level: info
 deploy_type: DaemonSet
 # Note in testing, Kube API does not refresh faster than 10 seconds
