@@ -28,6 +28,7 @@ function main() {
   "image.imagePullPolicy=Never",
   "deploy_type=Deployment",
   "log_level=debug"
+  "dev.enabled=true"
   )
 
   if [[ $ENV =~ "e2e"   ]]; then
@@ -37,7 +38,7 @@ function main() {
     docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f DockerfileTestShrink -t local.io/local/shrink-test:latest .
     kind load docker-image -v 9 --name "${DEPLOYMENT_NAME}-cluster" --nodes "${DEPLOYMENT_NAME}-cluster-worker" "local.io/local/shrink-test:latest"
 
-    e2e_values_arr=("test.enabled=true", "interval=1")
+    e2e_values_arr=("interval=5")
     common_set_values_arr+=("${e2e_values_arr[@]}")
   fi
 
@@ -45,6 +46,8 @@ function main() {
 
   docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f ${dockerfile} -t local.io/local/$DEPLOYMENT_NAME:$image_tag .
   kind load docker-image -v 9 --name "${DEPLOYMENT_NAME}-cluster" --nodes "${DEPLOYMENT_NAME}-cluster-worker" "local.io/local/${DEPLOYMENT_NAME}:${image_tag}"
+
+
 
   # Install Par Chart
   helm upgrade --install $DEPLOYMENT_NAME ./chart \
@@ -59,13 +62,23 @@ function main() {
       '{ "spec": {"template": { "spec":{"securityContext": null, "containers":[{"name":"metrics", "livenessProbe": null, "readinessProbe": null, "securityContext": null, "command": null, "args": null  }]}}}}'
   fi
 
+
   # kill dangling port forwards if found.
+  # Exporter Porter
   sudo ss -aK '( dport = :9100 or sport = :9100 )' | true
+  # Prometheus Port
+  sudo ss -aK '( dport = :9090 or sport = :9090 )' | true
+
+  # Start Exporter Port Forward
+  (
+    sleep 10
+    printf "\n\n" && while :; do kubectl port-forward -n $DEPLOYMENT_NAME service/k8s-ephemeral-storage-metrics 9100:9100 || sleep 5; done
+  ) &
 
   # Start Prometheus Port Forward
   (
     sleep 10
-    printf "\n\n" && while :; do kubectl port-forward -n $DEPLOYMENT_NAME service/k8s-ephemeral-storage-metrics 9100:9100 || sleep 5; done
+    printf "\n\n" && while :; do kubectl port-forward -n $DEPLOYMENT_NAME service/prometheus-operated  9090:9090 || sleep 5; done
   ) &
 
   if [[ $ENV == "debug" ]]; then

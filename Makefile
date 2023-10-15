@@ -26,11 +26,8 @@ helm-docs:
 	$(LOCALBIN)/helm-docs  --template-files "${GITROOT}/chart/README.md.gotmpl"
 	cat "${GITROOT}/Header.md" "${GITROOT}/chart/README.md" > "${GITROOT}/README.md"
 
-create_kind:
+new_kind:
 	./scripts/create_kind.sh
-
-delete_kind:
-	kind delete clusters "${DEPLOYMENT_NAME}-cluster"
 
 init: fmt vet
 
@@ -43,6 +40,18 @@ deploy_e2e_debug: init
 deploy_local: init
 	./scripts/deploy.sh
 
-deploy_e2e: init ginkgo delete_kind create_kind
+deploy_e2e: init ginkgo new_kind
 	ENV='e2e' ./scripts/deploy.sh
 
+release-docker:
+	GITHUB_TOKEN="${GITHUB_TOKEN}" VERSION="${VERSION}" ./scripts/release-docker.sh
+
+release: release-docker helm-docs
+	# ex. make GITHUB_TOKEN=asdfasdf VERSION=1.0.0 release
+	helm package chart --destination chart
+	helm repo index --merge index.yaml chart/.
+
+release-github:
+	# ex. make VERSION=1.0.0 release-github
+	gh auth login --web
+	gh release create ${VERSION} --generate-notes
