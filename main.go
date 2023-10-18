@@ -108,6 +108,8 @@ func getMetrics() {
 			"pod_namespace",
 			// Name of Node where pod is placed.
 			"node_name",
+			// A Node's adjustTime polling rate time after a Node API query.
+			"adjusted_polling_rate",
 		},
 	)
 
@@ -115,7 +117,9 @@ func getMetrics() {
 
 	log.Debug().Msg(fmt.Sprintf("getMetrics has been invoked"))
 	currentNode = getEnv("CURRENT_NODE_NAME", "")
-	sampleInterval, _ = strconv.ParseInt(getEnv("SCRAPE_INTERVAL", "15"), 2, 64)
+	sampleInterval, _ = strconv.ParseInt(getEnv("SCRAPE_INTERVAL", "15"), 10, 64)
+	sampleInterval = sampleInterval * 1000
+	adjustTime := sampleInterval
 	for {
 		start := time.Now()
 
@@ -139,17 +143,17 @@ func getMetrics() {
 				log.Warn().Msg(fmt.Sprintf("pod %s/%s on %s has no metrics on its ephemeral storage usage", podName, podNamespace, nodeName))
 				log.Warn().Msg(fmt.Sprintf("raw content %v", content))
 			}
-			opsQueued.With(prometheus.Labels{"pod_namespace": podNamespace, "pod_name": podName, "node_name": nodeName}).Set(usedBytes)
+			opsQueued.With(prometheus.Labels{"pod_namespace": podNamespace,
+				"pod_name": podName, "node_name": nodeName, "adjusted_polling_rate": strconv.FormatInt(adjustTime, 10)}).Set(usedBytes)
 
 			log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
 		}
 
 		// TODO: Fix Sleep time for polling.
-		elapsedTime := time.Now().Sub(start).Milliseconds() / 1000
-		adjustTime := sampleInterval - elapsedTime
-		log.Debug().Msgf("Adjusted Poll time: %d seconds", adjustTime)
-		log.Debug().Msgf("Time Now: %d mil", elapsedTime)
-		time.Sleep(time.Duration(adjustTime) * time.Second)
+		elapsedTime := time.Now().Sub(start).Milliseconds()
+		adjustTime = sampleInterval - elapsedTime
+		log.Debug().Msgf("Adjusted Poll Rate: %d ms", adjustTime)
+		time.Sleep(time.Duration(adjustTime) * time.Millisecond)
 	}
 }
 

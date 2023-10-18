@@ -13,7 +13,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | dev.enabled | bool | `false` |  |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.0.0"` |  |
+| image.tag | string | `"1.0.1"` |  |
 | interval | int | `15` |  |
 | log_level | string | `"info"` |  |
 | prometheus.release | string | `"kube-prometheus-stack"` |  |

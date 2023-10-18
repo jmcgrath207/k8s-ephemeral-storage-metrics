@@ -2,7 +2,7 @@
 
 GITROOT ?= $(shell pwd)
 DEPLOYMENT_NAME = ephemeral-metrics
-K8S_VERSION ?= 1.26.0
+K8S_VERSION ?= 1.27.0
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
@@ -46,12 +46,15 @@ deploy_e2e: init ginkgo new_kind
 release-docker:
 	GITHUB_TOKEN="${GITHUB_TOKEN}" VERSION="${VERSION}" ./scripts/release-docker.sh
 
-release: release-docker helm-docs
-	# ex. make GITHUB_TOKEN=asdfasdf VERSION=1.0.0 release
+release: github_login release-docker helm-docs
+	# ex. make VERSION=1.0.1 release
+
 	helm package chart --destination chart
 	helm repo index --merge index.yaml chart/.
 
-release-github:
-	# ex. make VERSION=1.0.0 release-github
-	gh auth login --web
+release-github: github_login
+	# ex. make VERSION=1.0.1 release-github
 	gh release create ${VERSION} --generate-notes
+
+github_login:
+	gh auth login --web --scopes=read:packages,write:packages

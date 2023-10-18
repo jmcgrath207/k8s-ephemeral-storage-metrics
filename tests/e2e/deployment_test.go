@@ -107,9 +107,32 @@ func checkPrometheus(checkSlice []string) {
 
 }
 
-// #TODO: Create this function
-func WatchEphemeralPodSize(podname string, targetSize float64, timeout time.Duration) {
-	// Watch Prometheus Metrics until the ephemeral storage shrinks or grows to a certain targetSize.
+func WatchPollingRate(pollRateUpper float64, pollingRateLower float64, timeout time.Duration) {
+	status := 0
+	startTime := time.Now()
+	re := regexp.MustCompile(`ephemeral_storage_pod_usage\{adjusted_polling_rate="(\d+)`)
+	for {
+		elapsed := time.Since(startTime)
+		if elapsed >= timeout {
+			ginkgo.GinkgoWriter.Printf("Watch for rate polling timed out")
+			break
+		}
+		output := requestPrometheusString()
+		match := re.FindAllStringSubmatch(output, 2)
+		floatValue, _ := strconv.ParseFloat(match[0][1], 64)
+		if pollRateUpper >= floatValue && pollingRateLower <= floatValue {
+			status = 1
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+
+	gomega.Expect(status).Should(gomega.Equal(1))
+
+}
+
+func WatchEphemeralPodSize(podname string, sizeChange float64, timeout time.Duration) {
+	// Watch Prometheus Metrics until the ephemeral storage shrinks or grows to a certain sizeChange.
 	startTime := time.Now()
 	status := 0
 	var initSize float64
@@ -125,22 +148,23 @@ func WatchEphemeralPodSize(podname string, targetSize float64, timeout time.Dura
 		floatValue, _ := strconv.ParseFloat(match[0][1], 64)
 		if initSize == 0.0 {
 			initSize = floatValue
+
 		}
 		if strings.Contains(podname, "grow") {
-			if floatValue-initSize >= targetSize {
-				ginkgo.GinkgoWriter.Printf("\nSuccess: \n\tPod Name: %s \n\tTargetSize: %f \n\tPodSize: %f", podname, targetSize, floatValue)
+			if floatValue-initSize >= sizeChange {
+				ginkgo.GinkgoWriter.Printf("\nSuccess: \n\tPod Name: %s \n\tTargetSize: %f \n\tPodSize: %f", podname, initSize+sizeChange, floatValue)
 				status = 1
 				break
 			}
-			ginkgo.GinkgoWriter.Printf("\nPending: \n\tPod Name: %s \n\tTargetSize: %f \n\tPodSize: %f", podname, targetSize, floatValue)
+			ginkgo.GinkgoWriter.Printf("\nPending: \n\tPod Name: %s \n\tTargetSize: %f \n\tPodSize: %f", podname, initSize+sizeChange, floatValue)
 			time.Sleep(time.Second * 5)
 		} else if strings.Contains(podname, "shrink") {
-			if initSize-floatValue >= targetSize {
-				ginkgo.GinkgoWriter.Printf("\nSuccess: \n\tPod Name: %s \n\tTargetSize: %f \n\tPodSize: %f", podname, targetSize, floatValue)
+			if initSize-floatValue >= sizeChange {
+				ginkgo.GinkgoWriter.Printf("\nSuccess: \n\tPod Name: %s \n\tTargetSize: %f \n\tPodSize: %f", podname, initSize-sizeChange, floatValue)
 				status = 1
 				break
 			}
-			ginkgo.GinkgoWriter.Printf("\nPending: \n\tPod Name: %s \n\tTargetSize: %f \n\tPodSize: %f", podname, targetSize, floatValue)
+			ginkgo.GinkgoWriter.Printf("\nPending: \n\tPod Name: %s \n\tTargetSize: %f \n\tPodSize: %f", podname, initSize-sizeChange, floatValue)
 			time.Sleep(time.Second * 5)
 		}
 
@@ -164,6 +188,11 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 		})
 		ginkgo.Specify("\nWatch Pod shrink to 100000 Bytes", func() {
 			WatchEphemeralPodSize("shrink-test", 100000, time.Second*90)
+		})
+	})
+	ginkgo.Context("Test Polling speed\n", func() {
+		ginkgo.Specify("\nMake sure Adjusted Poll rate is between 5000 - 4000 ms  ", func() {
+			WatchPollingRate(5000.0, 4000.0, time.Second*90)
 		})
 	})
 })

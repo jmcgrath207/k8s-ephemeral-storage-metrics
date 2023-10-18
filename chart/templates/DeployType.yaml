@@ -28,6 +28,11 @@ spec:
             - name: metrics
               containerPort: 9100
               protocol: TCP
+            {{ if .Values.dev.enabled }}
+            - name: debug
+              containerPort: 30002
+              protocol: TCP
+              {{ end }}
           livenessProbe:
             failureThreshold: 10
             httpGet:
