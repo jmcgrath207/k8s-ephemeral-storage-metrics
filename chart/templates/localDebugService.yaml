@@ -7,13 +7,12 @@ metadata:
     {{- include "chart.labels" . | nindent 4 }}
     app.kubernetes.io/name: k8s-ephemeral-storage-metrics-debug
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     {{- include "chart.selectorLabels" . | nindent 4 }}
-    app.kubernetes.io/name: k8s-ephemeral-storage-metrics-debug
   ports:
     - protocol: TCP
-      port: 9999
-      targetPort: 9999
-      nodePort: 30002
+      port: 30002
+      targetPort: debug
+      name: debug
  {{ end }}

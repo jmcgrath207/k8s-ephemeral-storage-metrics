@@ -15,8 +15,6 @@ COPY --from=builder /app .
 COPY --from=builder /go/bin/dlv .
 
 ENV LOG_LEVEL=debug
-EXPOSE 9999
+EXPOSE 30002
 
-ENTRYPOINT ["/dlv", "exec",  "--listen=:9999", "--headless=true", "--api-version=2", "--accept-multiclient", "/app"]
-#ENTRYPOINT ["/dlv", "exec",  "--listen=:9999", "--headless=true", "--api-version=2", "--accept-multiclient", "/app"]
-
+ENTRYPOINT ["/dlv", "exec",  "--listen=:30002", "--headless=true", "--api-version=2",  "/app"]

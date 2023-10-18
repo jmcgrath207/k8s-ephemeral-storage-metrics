@@ -87,8 +87,11 @@ function main() {
       sleep 10
       printf "\n\n" && while :; do kubectl logs -n $DEPLOYMENT_NAME -l app.kubernetes.io/name=k8s-ephemeral-storage-metrics  -f || sleep 5; done
     ) &
-    add_test_clients
-    kubectl port-forward -n $DEPLOYMENT_NAME service/debug 30002:9999
+
+    while [ "$(kubectl get pods -n $DEPLOYMENT_NAME -l app.kubernetes.io/name=k8s-ephemeral-storage-metrics -o=jsonpath='{.items[*].status.phase}')" != "Running" ]; do
+        echo  "waiting for k8s-ephemeral-storage-metrics  pod to start. Sleep 10" && sleep 10
+    done
+    kubectl port-forward -n $DEPLOYMENT_NAME services/debug 30002:30002
 
   elif [[ $ENV == "e2e" ]]; then
     ${LOCALBIN}/ginkgo -v -r ./tests/e2e/...
