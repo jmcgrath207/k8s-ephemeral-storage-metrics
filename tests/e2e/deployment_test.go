@@ -110,7 +110,7 @@ func checkPrometheus(checkSlice []string) {
 func WatchPollingRate(pollRateUpper float64, pollingRateLower float64, timeout time.Duration) {
 	status := 0
 	startTime := time.Now()
-	re := regexp.MustCompile(`ephemeral_storage_pod_usage\{adjusted_polling_rate="(\d+)`)
+	re := regexp.MustCompile(`ephemeral_storage_adjusted_polling_rate\s+(.+)`)
 	for {
 		elapsed := time.Since(startTime)
 		if elapsed >= timeout {
@@ -118,8 +118,8 @@ func WatchPollingRate(pollRateUpper float64, pollingRateLower float64, timeout t
 			break
 		}
 		output := requestPrometheusString()
-		match := re.FindAllStringSubmatch(output, 2)
-		floatValue, _ := strconv.ParseFloat(match[0][1], 64)
+		match := re.FindAllStringSubmatch(output, -1)
+		floatValue, _ := strconv.ParseFloat(match[2][1], 64)
 		if pollRateUpper >= floatValue && pollingRateLower <= floatValue {
 			status = 1
 			break
@@ -178,7 +178,8 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 	ginkgo.Context("Observe labels\n", func() {
 		ginkgo.Specify("\nReturn A Record IP addresses and Proxy IP address", func() {
 			var checkSlice []string
-			checkSlice = append(checkSlice, "ephemeral_storage_pod_usage", "pod_name=\"k8s-ephemeral-storage")
+			checkSlice = append(checkSlice, "ephemeral_storage_pod_usage",
+				"pod_name=\"k8s-ephemeral-storage", "ephemeral_storage_adjusted_polling_rate")
 			checkPrometheus(checkSlice)
 		})
 	})

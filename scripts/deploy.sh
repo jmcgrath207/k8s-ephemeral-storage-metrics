@@ -28,7 +28,8 @@ function main() {
   "image.imagePullPolicy=Never",
   "deploy_type=Deployment",
   "log_level=debug"
-  "dev.enabled=true"
+  "dev.enabled=true",
+  "extra.adjusted_polling_rate=true"
   )
 
   if [[ $ENV =~ "e2e"   ]]; then

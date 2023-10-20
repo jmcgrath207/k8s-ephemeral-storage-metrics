@@ -57,6 +57,10 @@ spec:
               value: "{{ .Values.interval }}"
             - name: LOG_LEVEL
               value: "{{ .Values.log_level }}"
+              {{ if .Values.extra.adjusted_polling_rate }}
+            - name: ADJUSTED_POLLING_RATE
+              value: "{{ .Values.extra.adjusted_polling_rate }}"
+              {{ end }}
             - name: CURRENT_NODE_NAME
               valueFrom:
                 fieldRef:
