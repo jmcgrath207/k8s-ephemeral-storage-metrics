@@ -22,10 +22,12 @@ import (
 )
 
 var (
-	inCluster      string
-	clientset      *kubernetes.Clientset
-	currentNode    string
-	sampleInterval int64
+	inCluster           string
+	clientset           *kubernetes.Clientset
+	currentNode         string
+	sampleInterval      int64
+	adjustedPollingRate bool
+	adjustedTimeGauge   prometheus.Gauge
 )
 
 func getEnv(key, fallback string) string {
@@ -99,7 +101,7 @@ func getMetrics() {
 
 	opsQueued := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ephemeral_storage_pod_usage",
-		Help: "Used to expose Ephemeral Storage metrics for pod ",
+		Help: "Used to expose Ephemeral Storage metrics for pod in bytes ",
 	},
 		[]string{
 			// name of pod for Ephemeral Storage
@@ -116,13 +118,14 @@ func getMetrics() {
 	log.Debug().Msg(fmt.Sprintf("getMetrics has been invoked"))
 	currentNode = getEnv("CURRENT_NODE_NAME", "")
 
-	adjustedTimeGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "ephemeral_storage_polling_rate_seconds",
-		Help: "A Node's adjustTime polling rate time after a Node API query.",
-	})
+	if adjustedPollingRate {
+		adjustedTimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "ephemeral_storage_adjusted_polling_rate",
+			Help: "AdjustTime polling rate time after a Node API queries in Milliseconds",
+		})
 
-	prometheus.MustRegister(adjustedTimeGauge)
-
+		prometheus.MustRegister(adjustedTimeGauge)
+	}
 	sampleInterval, _ = strconv.ParseInt(getEnv("SCRAPE_INTERVAL", "15"), 10, 64)
 	sampleInterval = sampleInterval * 1000
 	adjustTime := sampleInterval
@@ -138,8 +141,7 @@ func getMetrics() {
 		var data ephemeralStorageMetrics
 		_ = json.Unmarshal(content, &data)
 
-		opsQueued.Reset() // reset this metrics in the Exporter
-		adjustedTimeGauge.Set(float64(adjustTime / 1000.0))
+		opsQueued.Reset() // reset this metrics in the Exporter to flush dead pods
 
 		nodeName := data.Node.NodeName
 		for _, pod := range data.Pods {
@@ -152,11 +154,13 @@ func getMetrics() {
 			}
 			opsQueued.With(prometheus.Labels{"pod_namespace": podNamespace,
 				"pod_name": podName, "node_name": nodeName}).Set(usedBytes)
+			if adjustedPollingRate {
+				adjustedTimeGauge.Set(float64(adjustTime))
+			}
 
 			log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
 		}
 
-		// TODO: Fix Sleep time for polling.
 		elapsedTime := time.Now().Sub(start).Milliseconds()
 		adjustTime = sampleInterval - elapsedTime
 		log.Debug().Msgf("Adjusted Poll Rate: %d ms", adjustTime)
@@ -191,6 +195,7 @@ func main() {
 	getK8sClient()
 	go getMetrics()
 	port := getEnv("METRICS_PORT", "9100")
+	adjustedPollingRate, _ = strconv.ParseBool(getEnv("ADJUSTED_POLLING_RATE", "false"))
 	http.Handle("/metrics", promhttp.Handler())
 	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s", port))
 	err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)

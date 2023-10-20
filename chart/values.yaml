@@ -1,13 +1,18 @@
 image:
   repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics
-  tag: 1.0.1
+  tag: 1.0.2
   imagePullPolicy: IfNotPresent
 log_level: info
 deploy_type: DaemonSet
 # Note in testing, Kube API does not refresh faster than 10 seconds
+# -- Polling rate for exporter
 interval: 15 # Seconds
 prometheus:
   release: kube-prometheus-stack
+
+extra:
+  # -- Create the ephemeral_storage_adjusted_polling_rate metrics to report Adjusted Poll Rate in milliseconds. Typically used for testing.
+  adjusted_polling_rate: false
 
 # For local development and testing
 dev:
