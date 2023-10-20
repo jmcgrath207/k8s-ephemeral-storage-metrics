@@ -108,8 +108,6 @@ func getMetrics() {
 			"pod_namespace",
 			// Name of Node where pod is placed.
 			"node_name",
-			// A Node's adjustTime polling rate time after a Node API query.
-			"adjusted_polling_rate",
 		},
 	)
 
@@ -117,6 +115,14 @@ func getMetrics() {
 
 	log.Debug().Msg(fmt.Sprintf("getMetrics has been invoked"))
 	currentNode = getEnv("CURRENT_NODE_NAME", "")
+
+	adjustedTimeGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_polling_rate_seconds",
+		Help: "A Node's adjustTime polling rate time after a Node API query.",
+	})
+
+	prometheus.MustRegister(adjustedTimeGauge)
+
 	sampleInterval, _ = strconv.ParseInt(getEnv("SCRAPE_INTERVAL", "15"), 10, 64)
 	sampleInterval = sampleInterval * 1000
 	adjustTime := sampleInterval
@@ -133,6 +139,7 @@ func getMetrics() {
 		_ = json.Unmarshal(content, &data)
 
 		opsQueued.Reset() // reset this metrics in the Exporter
+		adjustedTimeGauge.Set(float64(adjustTime / 1000.0))
 
 		nodeName := data.Node.NodeName
 		for _, pod := range data.Pods {
@@ -144,7 +151,7 @@ func getMetrics() {
 				log.Warn().Msg(fmt.Sprintf("raw content %v", content))
 			}
 			opsQueued.With(prometheus.Labels{"pod_namespace": podNamespace,
-				"pod_name": podName, "node_name": nodeName, "adjusted_polling_rate": strconv.FormatInt(adjustTime, 10)}).Set(usedBytes)
+				"pod_name": podName, "node_name": nodeName}).Set(usedBytes)
 
 			log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
 		}
