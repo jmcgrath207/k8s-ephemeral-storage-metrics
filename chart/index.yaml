@@ -21,7 +21,7 @@ entries:
     sources:
     - https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics
     urls:
-    - k8s-ephemeral-storage-metrics-1.0.2.tgz
+    - https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/releases/download/1.0.2/k8s-ephemeral-storage-metrics-1.0.2.tgz
     version: 1.0.2
   - annotations:
       artifacthub.io/license: MIT
@@ -43,7 +43,7 @@ entries:
     sources:
     - https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics
     urls:
-    - k8s-ephemeral-storage-metrics-1.0.1.tgz
+    - https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/releases/download/1.0.1/k8s-ephemeral-storage-metrics-1.0.1.tgz
     version: 1.0.1
   - annotations:
       artifacthub.io/license: MIT
@@ -65,6 +65,6 @@ entries:
     sources:
     - https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics
     urls:
-    - k8s-ephemeral-storage-metrics-1.0.0.tgz
+    - https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/releases/download/1.0.0/k8s-ephemeral-storage-metrics-1.0.0.tgz
     version: 1.0.0
 generated: "2023-10-20T13:24:12.479459598-05:00"
