@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - master
-  pull_request:
-    types:
-      - ready_for_review
-
 
 jobs:
   e2e:
