@@ -179,7 +179,8 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 		ginkgo.Specify("\nReturn A Record IP addresses and Proxy IP address", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "ephemeral_storage_pod_usage",
-				"pod_name=\"k8s-ephemeral-storage", "ephemeral_storage_adjusted_polling_rate")
+				"pod_name=\"k8s-ephemeral-storage", "ephemeral_storage_adjusted_polling_rate",
+				"node_name=\"ephemeral-metrics-cluster-worker", "node_name=\"ephemeral-metrics-cluster-control-plane")
 			checkPrometheus(checkSlice)
 		})
 	})

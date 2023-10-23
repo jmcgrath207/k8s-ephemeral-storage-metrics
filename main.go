@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -18,16 +19,19 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"sync"
 	"time"
 )
 
 var (
 	inCluster           string
 	clientset           *kubernetes.Clientset
-	currentNode         string
 	sampleInterval      int64
 	adjustedPollingRate bool
 	adjustedTimeGauge   prometheus.Gauge
+	deployType          string
+	nodeSlice           []string
+	nodeWaitGroup       sync.WaitGroup
 )
 
 func getEnv(key, fallback string) string {
@@ -97,8 +101,34 @@ type ephemeralStorageMetrics struct {
 	}
 }
 
-func getMetrics() {
+func getNodes() {
+	nodeWaitGroup.Add(1)
+	if deployType != "Deployment" {
+		nodeSlice = append(nodeSlice, getEnv("CURRENT_NODE_NAME", ""))
+		nodeWaitGroup.Done()
+		return
+	}
+	for {
+		nodeSlice = nil
+		nodes, _ := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+		for _, node := range nodes.Items {
+			nodeSlice = append(nodeSlice, node.Name)
+		}
+		nodeWaitGroup.Done()
+		time.Sleep(1 * time.Minute)
+		nodeWaitGroup.Add(1)
+	}
 
+}
+
+type CollectMetric struct {
+	usedBytes float64
+	labels    prometheus.Labels
+}
+
+func getMetrics() {
+	nodeWaitGroup.Wait()
+	var labelsList []CollectMetric
 	opsQueued := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ephemeral_storage_pod_usage",
 		Help: "Used to expose Ephemeral Storage metrics for pod in bytes ",
@@ -116,7 +146,6 @@ func getMetrics() {
 	prometheus.MustRegister(opsQueued)
 
 	log.Debug().Msg(fmt.Sprintf("getMetrics has been invoked"))
-	currentNode = getEnv("CURRENT_NODE_NAME", "")
 
 	if adjustedPollingRate {
 		adjustedTimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -132,37 +161,55 @@ func getMetrics() {
 	for {
 		start := time.Now()
 
-		content, err := clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", currentNode)).DoRaw(context.Background())
-		if err != nil {
-			log.Error().Msg(fmt.Sprintf("ErrorBadRequst : %s\n", err.Error()))
-			os.Exit(1)
-		}
-		log.Debug().Msg(fmt.Sprintf("Fetched proxy stats from node : %s", currentNode))
-		var data ephemeralStorageMetrics
-		_ = json.Unmarshal(content, &data)
+		for _, node := range nodeSlice {
 
-		opsQueued.Reset() // reset this metrics in the Exporter to flush dead pods
-
-		nodeName := data.Node.NodeName
-		for _, pod := range data.Pods {
-			podName := pod.PodRef.Name
-			podNamespace := pod.PodRef.Namespace
-			usedBytes := pod.EphemeralStorage.UsedBytes
-			if podNamespace == "" || (usedBytes == 0 && pod.EphemeralStorage.AvailableBytes == 0 && pod.EphemeralStorage.CapacityBytes == 0) {
-				log.Warn().Msg(fmt.Sprintf("pod %s/%s on %s has no metrics on its ephemeral storage usage", podName, podNamespace, nodeName))
-				log.Warn().Msg(fmt.Sprintf("raw content %v", content))
+			content, err := clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", node)).DoRaw(context.Background())
+			if err != nil {
+				log.Error().Msg(fmt.Sprintf("ErrorBadRequst : %s\n", err.Error()))
+				os.Exit(1)
 			}
-			opsQueued.With(prometheus.Labels{"pod_namespace": podNamespace,
-				"pod_name": podName, "node_name": nodeName}).Set(usedBytes)
-			if adjustedPollingRate {
-				adjustedTimeGauge.Set(float64(adjustTime))
-			}
+			log.Debug().Msg(fmt.Sprintf("Fetched proxy stats from node : %s", node))
+			var data ephemeralStorageMetrics
+			_ = json.Unmarshal(content, &data)
 
-			log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
+			nodeName := data.Node.NodeName
+			for _, pod := range data.Pods {
+				podName := pod.PodRef.Name
+				podNamespace := pod.PodRef.Namespace
+				usedBytes := pod.EphemeralStorage.UsedBytes
+				if podNamespace == "" || (usedBytes == 0 && pod.EphemeralStorage.AvailableBytes == 0 && pod.EphemeralStorage.CapacityBytes == 0) {
+					log.Warn().Msg(fmt.Sprintf("pod %s/%s on %s has no metrics on its ephemeral storage usage", podName, podNamespace, nodeName))
+					log.Warn().Msg(fmt.Sprintf("raw content %v", content))
+				}
+				labelsList = append(labelsList, CollectMetric{
+					usedBytes,
+					prometheus.Labels{"pod_namespace": podNamespace,
+						"pod_name": podName, "node_name": nodeName},
+				})
+
+				log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
+			}
 		}
+
+		// reset this metrics in the Exporter to flush dead pods
+		opsQueued.Reset()
+		// Push new metrics to exporter
+		for _, x := range labelsList {
+			opsQueued.With(x.labels).Set(x.usedBytes)
+		}
+		// Zero out collection list
+		labelsList = nil
 
 		elapsedTime := time.Now().Sub(start).Milliseconds()
 		adjustTime = sampleInterval - elapsedTime
+		if adjustTime <= 0.0 {
+			log.Error().Msgf("Adjusted Poll Rate: %d ms", adjustTime)
+			log.Error().Msgf("Polling Rate could not keep up. Adjust your Interval to a higher number than %d", sampleInterval)
+			os.Exit(1)
+		}
+		if adjustedPollingRate {
+			adjustedTimeGauge.Set(float64(adjustTime))
+		}
 		log.Debug().Msgf("Adjusted Poll Rate: %d ms", adjustTime)
 		time.Sleep(time.Duration(adjustTime) * time.Millisecond)
 	}
@@ -193,9 +240,11 @@ func main() {
 	flag.Parse()
 	setLogger()
 	getK8sClient()
+	go getNodes()
 	go getMetrics()
 	port := getEnv("METRICS_PORT", "9100")
 	adjustedPollingRate, _ = strconv.ParseBool(getEnv("ADJUSTED_POLLING_RATE", "false"))
+	deployType = getEnv("DEPLOY_TYPE", "DaemonSet")
 	http.Handle("/metrics", promhttp.Handler())
 	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s", port))
 	err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)

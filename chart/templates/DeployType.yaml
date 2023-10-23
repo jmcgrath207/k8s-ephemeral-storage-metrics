@@ -53,6 +53,8 @@ spec:
             successThreshold: 1
             timeoutSeconds: 1
           env:
+            - name: DEPLOY_TYPE
+              value: "{{ .Values.deploy_type }}"
             - name: SCRAPE_INTERVAL
               value: "{{ .Values.interval }}"
             - name: LOG_LEVEL
@@ -61,8 +63,10 @@ spec:
             - name: ADJUSTED_POLLING_RATE
               value: "{{ .Values.extra.adjusted_polling_rate }}"
               {{ end }}
+              {{ if eq .Values.deploy_type  "DaemonSet" }}
             - name: CURRENT_NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+              {{ end }}
 

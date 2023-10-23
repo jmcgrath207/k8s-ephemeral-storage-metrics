@@ -1,9 +1,12 @@
 name: ci
 
 on:
+  push:
+    branches:
+      - master
   pull_request:
     types:
-      - closed
+      - ready_for_review
 
 
 jobs:

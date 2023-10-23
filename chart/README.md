@@ -2,6 +2,7 @@
 
 ```bash
 helm repo add k8s-ephemeral-storage-metrics https://jmcgrath207.github.io/k8s-ephemeral-storage-metrics/chart
+helm repo update
 helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral-storage-metrics
 ```
 
@@ -9,7 +10,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| deploy_type | string | `"DaemonSet"` |  |
+| deploy_type | string | `"Deployment"` | Set as Deployment for single controller to query all nodes or Daemonset |
 | dev.enabled | bool | `false` |  |
 | extra.adjusted_polling_rate | bool | `false` | Create the ephemeral_storage_adjusted_polling_rate metrics to report Adjusted Poll Rate in milliseconds. Typically used for testing. |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
