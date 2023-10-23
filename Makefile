@@ -47,7 +47,7 @@ deploy_e2e: init ginkgo new_kind
 release-docker:
 	GITHUB_TOKEN="${GITHUB_TOKEN}" VERSION="${VERSION}" ./scripts/release-docker.sh
 
-release-helm: helm-docs
+release-helm:
 	cd chart
 	sed -i "s/tag.*/tag: ${VERSION}/g" values.yaml
 	sed -i "s/version.*/version: ${VERSION}/g" Chart.yaml
@@ -57,11 +57,11 @@ release-helm: helm-docs
 	sed -i "s!k8s-ephemeral-storage-metrics-${VERSION}.tgz!https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/releases/download/${VERSION}/k8s-ephemeral-storage-metrics-${VERSION}.tgz!g" index.yaml
 	cd ..
 
-release: github_login release-docker release-helm
-	# ex. make VERSION=1.0.1 release
+release: github_login release-docker release-helm helm-docs
+	# ex. make VERSION=1.1.0 release
 
 release-github: github_login
-	# ex. make VERSION=1.0.1 release-github
+	# ex. make VERSION=1.1.0 release-github
 	gh release create ${VERSION} --generate-notes
 	gh release upload ${VERSION} "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz"
 	rm chart/k8s-ephemeral-storage-metrics-*.tgz
