@@ -24,7 +24,7 @@ kubectl get nodes -o wide
 # Deploy Service Monitor CRD
 kubectl apply --server-side -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.65.1/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
 
-if [[ ! $ENV =~ "e2e" ]]; then
+if ! [[  $ENV =~ "e2e" ]]; then
   # Deploy Prometheus
   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
   helm repo update

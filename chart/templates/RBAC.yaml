@@ -7,8 +7,8 @@ metadata:
   {{- include "chart.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
-    resources: ["nodes/proxy"]
-    verbs: ["get"]
+    resources: ["nodes","nodes/proxy"]
+    verbs: ["get","list"]
 
 ---
 

@@ -1,9 +1,10 @@
 image:
   repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics
-  tag: 1.0.2
+  tag: 1.1.0
   imagePullPolicy: IfNotPresent
 log_level: info
-deploy_type: DaemonSet
+# -- Set as Deployment for single controller to query all nodes or Daemonset
+deploy_type: Deployment
 # Note in testing, Kube API does not refresh faster than 10 seconds
 # -- Polling rate for exporter
 interval: 15 # Seconds
