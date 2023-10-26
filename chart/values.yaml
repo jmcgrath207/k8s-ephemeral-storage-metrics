@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics
-  tag: 1.1.0
+  tag: 1.1.1
   imagePullPolicy: IfNotPresent
 log_level: info
 # -- Set as Deployment for single controller to query all nodes or Daemonset
