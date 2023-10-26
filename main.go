@@ -245,6 +245,10 @@ func main() {
 	port := getEnv("METRICS_PORT", "9100")
 	adjustedPollingRate, _ = strconv.ParseBool(getEnv("ADJUSTED_POLLING_RATE", "false"))
 	deployType = getEnv("DEPLOY_TYPE", "DaemonSet")
+	if deployType != "Deployment" && deployType != "DaemonSet" {
+		log.Error().Msg(fmt.Sprintf("deployType must be 'Deployment' or 'DaemonSet', got %s", deployType))
+		os.Exit(1)
+	}
 	http.Handle("/metrics", promhttp.Handler())
 	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s", port))
 	err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
