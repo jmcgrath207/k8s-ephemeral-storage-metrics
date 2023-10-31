@@ -12,7 +12,7 @@ $(LOCALBIN):
 
 
 ginkgo:
-	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@v2.9.7
+	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@latest
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -58,10 +58,10 @@ release-helm:
 	cd ..
 
 release: github_login release-docker release-helm helm-docs
-	# ex. make VERSION=1.1.1 release
+	# ex. make VERSION=1.2.0 release
 
 release-github: github_login
-	# ex. make VERSION=1.1.1 release-github
+	# ex. make VERSION=1.2.0 release-github
 	gh release create ${VERSION} --generate-notes
 	gh release upload ${VERSION} "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz"
 	rm chart/k8s-ephemeral-storage-metrics-*.tgz

@@ -110,7 +110,7 @@ func checkPrometheus(checkSlice []string) {
 func WatchPollingRate(pollRateUpper float64, pollingRateLower float64, timeout time.Duration) {
 	status := 0
 	startTime := time.Now()
-	re := regexp.MustCompile(`ephemeral_storage_adjusted_polling_rate\s+(.+)`)
+	re := regexp.MustCompile(`ephemeral_storage_adjusted_polling_rate\{node_name="ephemeral-metrics-cluster-control-plane"}\s+(.+)`)
 	for {
 		elapsed := time.Since(startTime)
 		if elapsed >= timeout {
@@ -119,7 +119,7 @@ func WatchPollingRate(pollRateUpper float64, pollingRateLower float64, timeout t
 		}
 		output := requestPrometheusString()
 		match := re.FindAllStringSubmatch(output, -1)
-		floatValue, _ := strconv.ParseFloat(match[2][1], 64)
+		floatValue, _ := strconv.ParseFloat(match[0][1], 64)
 		if pollRateUpper >= floatValue && pollingRateLower <= floatValue {
 			status = 1
 			break

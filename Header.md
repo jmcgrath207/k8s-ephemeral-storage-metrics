@@ -7,6 +7,8 @@
 The goal of this project is to export ephemeral storage metric usage per pod to Prometheus that is address in this 
 issue [Here](https://github.com/kubernetes/kubernetes/issues/69507)
 
+It accomplishes this by creating a Service Monitor 
+
 
 ![main image](img/screenshot.png)
 

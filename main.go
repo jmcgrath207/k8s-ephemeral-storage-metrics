@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/cenkalti/backoff/v4"
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/panjf2000/ants/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
@@ -24,14 +27,17 @@ import (
 )
 
 var (
-	inCluster           string
-	clientset           *kubernetes.Clientset
-	sampleInterval      int64
-	adjustedPollingRate bool
-	adjustedTimeGauge   prometheus.Gauge
-	deployType          string
-	nodeSlice           []string
-	nodeWaitGroup       sync.WaitGroup
+	inCluster            string
+	clientset            *kubernetes.Clientset
+	sampleInterval       int64
+	sampleIntervalMill   int64
+	adjustedPollingRate  bool
+	adjustedTimeGaugeVec *prometheus.GaugeVec
+	deployType           string
+	nodeWaitGroup        sync.WaitGroup
+	podGaugeVec          *prometheus.GaugeVec
+	nodeSlice            []string
+	maxNodeConcurrency   int
 )
 
 func getEnv(key, fallback string) string {
@@ -102,22 +108,69 @@ type ephemeralStorageMetrics struct {
 }
 
 func getNodes() {
+	oldNodeSet := mapset.NewSet[string]()
+	nodeSet := mapset.NewSet[string]()
 	nodeWaitGroup.Add(1)
 	if deployType != "Deployment" {
-		nodeSlice = append(nodeSlice, getEnv("CURRENT_NODE_NAME", ""))
+		nodeSet.Add(getEnv("CURRENT_NODE_NAME", ""))
 		nodeWaitGroup.Done()
 		return
 	}
+
+	// Init Node slice
+	startNodes, _ := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	for _, node := range startNodes.Items {
+		nodeSet.Add(node.Name)
+	}
+	nodeSlice = nodeSet.ToSlice()
+	nodeWaitGroup.Done()
+
+	// Poll for new nodes and remove dead ones
 	for {
-		nodeSlice = nil
+		oldNodeSet = nodeSet.Clone()
+		nodeSet.Clear()
 		nodes, _ := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 		for _, node := range nodes.Items {
-			nodeSlice = append(nodeSlice, node.Name)
+			nodeSet.Add(node.Name)
 		}
-		nodeWaitGroup.Done()
+		deadNodesSet := nodeSet.Difference(oldNodeSet)
+
+		// Evict Metrics where the node doesn't exist anymore.
+		for _, deadNode := range deadNodesSet.ToSlice() {
+			podGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": deadNode})
+			log.Info().Msgf("Node %s does not exist. Removing from monitoring", deadNode)
+		}
+
+		nodeSlice = nodeSet.ToSlice()
 		time.Sleep(1 * time.Minute)
-		nodeWaitGroup.Add(1)
 	}
+
+}
+
+func queryNode(node string) ([]byte, error) {
+	var content []byte
+
+	bo := backoff.NewExponentialBackOff()
+	bo.MaxInterval = 1 * time.Second
+	bo.MaxElapsedTime = time.Duration(sampleInterval) * time.Second
+
+	operation := func() error {
+		var err error
+		content, err = clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", node)).DoRaw(context.Background())
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	err := backoff.Retry(operation, bo)
+
+	if err != nil {
+		log.Warn().Msg(fmt.Sprintf("Failed fetched proxy stats from node : %s", node))
+		return nil, err
+	}
+
+	return content, nil
 
 }
 
@@ -126,10 +179,61 @@ type CollectMetric struct {
 	labels    prometheus.Labels
 }
 
-func getMetrics() {
-	nodeWaitGroup.Wait()
+func setMetrics(node string) {
+
 	var labelsList []CollectMetric
-	opsQueued := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	var data ephemeralStorageMetrics
+
+	start := time.Now()
+
+	content, err := queryNode(node)
+	if err != nil {
+		// Could not query node, skip
+		return
+	}
+
+	log.Debug().Msg(fmt.Sprintf("Fetched proxy stats from node : %s", node))
+	_ = json.Unmarshal(content, &data)
+
+	nodeName := data.Node.NodeName
+
+	for _, pod := range data.Pods {
+		podName := pod.PodRef.Name
+		podNamespace := pod.PodRef.Namespace
+		usedBytes := pod.EphemeralStorage.UsedBytes
+		if podNamespace == "" || (usedBytes == 0 && pod.EphemeralStorage.AvailableBytes == 0 && pod.EphemeralStorage.CapacityBytes == 0) {
+			log.Warn().Msg(fmt.Sprintf("pod %s/%s on %s has no metrics on its ephemeral storage usage", podName, podNamespace, nodeName))
+			log.Warn().Msg(fmt.Sprintf("raw content %v", content))
+		}
+		labelsList = append(labelsList, CollectMetric{
+			usedBytes,
+			prometheus.Labels{"pod_namespace": podNamespace,
+				"pod_name": podName, "node_name": nodeName},
+		})
+
+		log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
+	}
+
+	// Reset Metrics for this Node name to remove dead pods
+	podGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": nodeName})
+
+	// Push new metrics to exporter
+	for _, x := range labelsList {
+		podGaugeVec.With(x.labels).Set(x.usedBytes)
+	}
+
+	adjustTime := sampleIntervalMill - time.Now().Sub(start).Milliseconds()
+	if adjustTime <= 0.0 {
+		log.Error().Msgf("Node %s: Polling Rate could not keep up. Adjust your Interval to a higher number than %d seconds", nodeName, sampleInterval)
+	}
+	if adjustedPollingRate {
+		adjustedTimeGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(float64(adjustTime))
+	}
+
+}
+
+func createMetrics() {
+	podGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ephemeral_storage_pod_usage",
 		Help: "Used to expose Ephemeral Storage metrics for pod in bytes ",
 	},
@@ -143,75 +247,40 @@ func getMetrics() {
 		},
 	)
 
-	prometheus.MustRegister(opsQueued)
-
-	log.Debug().Msg(fmt.Sprintf("getMetrics has been invoked"))
+	prometheus.MustRegister(podGaugeVec)
 
 	if adjustedPollingRate {
-		adjustedTimeGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		adjustedTimeGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "ephemeral_storage_adjusted_polling_rate",
 			Help: "AdjustTime polling rate time after a Node API queries in Milliseconds",
-		})
+		},
+			[]string{
+				// Name of Node where pod is placed.
+				"node_name",
+			})
 
-		prometheus.MustRegister(adjustedTimeGauge)
+		prometheus.MustRegister(adjustedTimeGaugeVec)
 	}
-	sampleInterval, _ = strconv.ParseInt(getEnv("SCRAPE_INTERVAL", "15"), 10, 64)
-	sampleInterval = sampleInterval * 1000
-	adjustTime := sampleInterval
+
+}
+
+func getMetrics() {
+
+	nodeWaitGroup.Wait()
+
+	p, _ := ants.NewPoolWithFunc(maxNodeConcurrency, func(node interface{}) {
+		setMetrics(node.(string))
+	}, ants.WithExpiryDuration(time.Duration(sampleInterval)*time.Second))
+
+	defer p.Release()
+
 	for {
-		start := time.Now()
 
 		for _, node := range nodeSlice {
-
-			content, err := clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", node)).DoRaw(context.Background())
-			if err != nil {
-				log.Error().Msg(fmt.Sprintf("ErrorBadRequst : %s\n", err.Error()))
-				os.Exit(1)
-			}
-			log.Debug().Msg(fmt.Sprintf("Fetched proxy stats from node : %s", node))
-			var data ephemeralStorageMetrics
-			_ = json.Unmarshal(content, &data)
-
-			nodeName := data.Node.NodeName
-			for _, pod := range data.Pods {
-				podName := pod.PodRef.Name
-				podNamespace := pod.PodRef.Namespace
-				usedBytes := pod.EphemeralStorage.UsedBytes
-				if podNamespace == "" || (usedBytes == 0 && pod.EphemeralStorage.AvailableBytes == 0 && pod.EphemeralStorage.CapacityBytes == 0) {
-					log.Warn().Msg(fmt.Sprintf("pod %s/%s on %s has no metrics on its ephemeral storage usage", podName, podNamespace, nodeName))
-					log.Warn().Msg(fmt.Sprintf("raw content %v", content))
-				}
-				labelsList = append(labelsList, CollectMetric{
-					usedBytes,
-					prometheus.Labels{"pod_namespace": podNamespace,
-						"pod_name": podName, "node_name": nodeName},
-				})
-
-				log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
-			}
+			_ = p.Invoke(node)
 		}
 
-		// reset this metrics in the Exporter to flush dead pods
-		opsQueued.Reset()
-		// Push new metrics to exporter
-		for _, x := range labelsList {
-			opsQueued.With(x.labels).Set(x.usedBytes)
-		}
-		// Zero out collection list
-		labelsList = nil
-
-		elapsedTime := time.Now().Sub(start).Milliseconds()
-		adjustTime = sampleInterval - elapsedTime
-		if adjustTime <= 0.0 {
-			log.Error().Msgf("Adjusted Poll Rate: %d ms", adjustTime)
-			log.Error().Msgf("Polling Rate could not keep up. Adjust your Interval to a higher number than %d", sampleInterval)
-			os.Exit(1)
-		}
-		if adjustedPollingRate {
-			adjustedTimeGauge.Set(float64(adjustTime))
-		}
-		log.Debug().Msgf("Adjusted Poll Rate: %d ms", adjustTime)
-		time.Sleep(time.Duration(adjustTime) * time.Millisecond)
+		time.Sleep(time.Duration(sampleInterval) * time.Second)
 	}
 }
 
@@ -238,13 +307,18 @@ func setLogger() {
 
 func main() {
 	flag.Parse()
-	setLogger()
-	getK8sClient()
-	go getNodes()
-	go getMetrics()
 	port := getEnv("METRICS_PORT", "9100")
 	adjustedPollingRate, _ = strconv.ParseBool(getEnv("ADJUSTED_POLLING_RATE", "false"))
 	deployType = getEnv("DEPLOY_TYPE", "DaemonSet")
+	sampleInterval, _ = strconv.ParseInt(getEnv("SCRAPE_INTERVAL", "15"), 10, 64)
+	maxNodeConcurrency, _ = strconv.Atoi(getEnv("MAX_NODE_CONCURRENCY", "10"))
+	sampleIntervalMill = sampleInterval * 1000
+
+	setLogger()
+	getK8sClient()
+	createMetrics()
+	go getNodes()
+	go getMetrics()
 	if deployType != "Deployment" && deployType != "DaemonSet" {
 		log.Error().Msg(fmt.Sprintf("deployType must be 'Deployment' or 'DaemonSet', got %s", deployType))
 		os.Exit(1)

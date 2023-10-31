@@ -1,13 +1,15 @@
 image:
   repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics
-  tag: 1.1.1
+  tag: 1.2.0
   imagePullPolicy: IfNotPresent
 log_level: info
 # -- Set as Deployment for single controller to query all nodes or Daemonset
 deploy_type: Deployment
 # Note in testing, Kube API does not refresh faster than 10 seconds
-# -- Polling rate for exporter
+# -- Polling node rate for exporter
 interval: 15 # Seconds
+# -- Max amount of concurrent query requests at a time.
+max_node_concurrency: 10
 prometheus:
   release: kube-prometheus-stack
 
