@@ -7,6 +7,8 @@
 The goal of this project is to export ephemeral storage metric usage per pod to Prometheus that is address in this 
 issue [Here](https://github.com/kubernetes/kubernetes/issues/69507)
 
+It accomplishes this by creating a Service Monitor 
+
 
 ![main image](img/screenshot.png)
 
@@ -28,9 +30,10 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | extra.adjusted_polling_rate | bool | `false` | Create the ephemeral_storage_adjusted_polling_rate metrics to report Adjusted Poll Rate in milliseconds. Typically used for testing. |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.1.1"` |  |
-| interval | int | `15` | Polling rate for exporter |
+| image.tag | string | `"1.2.0"` |  |
+| interval | int | `15` | Polling node rate for exporter |
 | log_level | string | `"info"` |  |
+| max_node_concurrency | int | `10` | Max amount of concurrent query requests at a time. |
 | prometheus.release | string | `"kube-prometheus-stack"` |  |
 
 ## Contribute
