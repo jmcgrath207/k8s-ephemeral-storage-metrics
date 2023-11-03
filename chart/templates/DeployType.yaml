@@ -16,8 +16,12 @@ spec:
     metadata:
       labels:
       {{- include "chart.labels" . | nindent 8 }}
+      annotations:
+      {{- toYaml .Values.podAnnotations | nindent 8 }}
     spec:
       serviceAccountName: k8s-ephemeral-storage-metrics
+      nodeSelector:
+      {{- toYaml .Values.nodeSelector | nindent 8 }}
       containers:
         - name: metrics
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}

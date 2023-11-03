@@ -11,6 +11,7 @@ interval: 15 # Seconds
 # -- Max amount of concurrent query requests at a time.
 max_node_concurrency: 10
 prometheus:
+  enable: true
   release: kube-prometheus-stack
 
 extra:
@@ -20,3 +21,7 @@ extra:
 # For local development and testing
 dev:
   enabled: false
+
+podAnnotations: {}
+
+nodeSelector: {}
