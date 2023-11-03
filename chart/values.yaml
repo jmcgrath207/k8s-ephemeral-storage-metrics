@@ -23,3 +23,5 @@ dev:
   enabled: false
 
 podAnnotations: {}
+
+nodeSelector: {}
