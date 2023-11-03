@@ -30,10 +30,13 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | extra.adjusted_polling_rate | bool | `false` | Create the ephemeral_storage_adjusted_polling_rate metrics to report Adjusted Poll Rate in milliseconds. Typically used for testing. |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.2.0"` |  |
+| image.tag | string | `"1.2.1"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | log_level | string | `"info"` |  |
 | max_node_concurrency | int | `10` | Max amount of concurrent query requests at a time. |
+| nodeSelector | object | `{}` |  |
+| podAnnotations | object | `{}` |  |
+| prometheus.enable | bool | `true` |  |
 | prometheus.release | string | `"kube-prometheus-stack"` |  |
 
 ## Contribute
