@@ -29,7 +29,7 @@ function main() {
   "deploy_type=Deployment",
   "log_level=debug"
   "dev.enabled=true",
-  "extra.adjusted_polling_rate=true"
+  "metrics.adjusted_polling_rate=true"
   )
 
   if [[ $ENV =~ "e2e"   ]]; then

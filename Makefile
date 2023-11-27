@@ -49,19 +49,19 @@ release-docker:
 
 release-helm:
 	cd chart
-	sed -i "s/tag.*/tag: ${VERSION}/g" values.yaml
-	sed -i "s/version.*/version: ${VERSION}/g" Chart.yaml
-	sed -i "s/appVersion.*/appVersion: ${VERSION}/g" Chart.yaml
+	sed -i "s/tag:.*/tag: ${VERSION}/g" values.yaml
+	sed -i "s/version:.*/version: ${VERSION}/g" Chart.yaml
+	sed -i "s/appVersion:.*/appVersion: ${VERSION}/g" Chart.yaml
 	helm package .
 	helm repo index --merge index.yaml .
 	sed -i "s!k8s-ephemeral-storage-metrics-${VERSION}.tgz!https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/releases/download/${VERSION}/k8s-ephemeral-storage-metrics-${VERSION}.tgz!g" index.yaml
 	cd ..
 
 release: github_login release-docker release-helm helm-docs
-	# ex. make VERSION=1.2.1 release
+	# ex. make VERSION=1.3.0 release
 
 release-github: github_login
-	# ex. make VERSION=1.2.1 release-github
+	# ex. make VERSION=1.3.0 release-github
 	gh release create ${VERSION} --generate-notes
 	gh release upload ${VERSION} "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz"
 	rm chart/k8s-ephemeral-storage-metrics-*.tgz

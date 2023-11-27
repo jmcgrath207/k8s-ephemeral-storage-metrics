@@ -107,6 +107,18 @@ func checkPrometheus(checkSlice []string) {
 
 }
 
+func WatchNodePercentage() {
+	status := 0
+	re := regexp.MustCompile(`ephemeral_storage_node_percentage\{node_name="ephemeral-metrics-cluster-control-plane"}\s+(.+)`)
+	output := requestPrometheusString()
+	match := re.FindAllStringSubmatch(output, -1)
+	floatValue, _ := strconv.ParseFloat(match[0][1], 64)
+	if floatValue < 100.0 {
+		status = 1
+	}
+	gomega.Expect(status).Should(gomega.Equal(1))
+
+}
 func WatchPollingRate(pollRateUpper float64, pollingRateLower float64, timeout time.Duration) {
 	status := 0
 	startTime := time.Now()
@@ -179,6 +191,9 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 		ginkgo.Specify("\nReturn A Record IP addresses and Proxy IP address", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "ephemeral_storage_pod_usage",
+				"ephemeral_storage_node_available",
+				"ephemeral_storage_node_capacity",
+				"ephemeral_storage_node_percentage",
 				"pod_name=\"k8s-ephemeral-storage", "ephemeral_storage_adjusted_polling_rate",
 				"node_name=\"ephemeral-metrics-cluster-worker", "node_name=\"ephemeral-metrics-cluster-control-plane")
 			checkPrometheus(checkSlice)
@@ -193,8 +208,13 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 		})
 	})
 	ginkgo.Context("Test Polling speed\n", func() {
-		ginkgo.Specify("\nMake sure Adjusted Poll rate is between 5000 - 4000 ms  ", func() {
+		ginkgo.Specify("\nMake sure Adjusted Poll rate is between 5000 - 4000 ms", func() {
 			WatchPollingRate(5000.0, 4000.0, time.Second*90)
+		})
+	})
+	ginkgo.Context("Test ephemeral_storage_node_percentage\n", func() {
+		ginkgo.Specify("\nMake sure percentage is not over 100", func() {
+			WatchNodePercentage()
 		})
 	})
 })
