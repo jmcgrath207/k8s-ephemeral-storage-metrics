@@ -213,7 +213,7 @@ func setMetrics(node string) {
 		capacityBytes := pod.EphemeralStorage.CapacityBytes
 		if podNamespace == "" || (usedBytes == 0 && pod.EphemeralStorage.AvailableBytes == 0 && pod.EphemeralStorage.CapacityBytes == 0) {
 			log.Warn().Msg(fmt.Sprintf("pod %s/%s on %s has no metrics on its ephemeral storage usage", podName, podNamespace, nodeName))
-			log.Warn().Msg(fmt.Sprintf("raw content %v", content))
+			continue
 		}
 
 		if ephemeralStoragePodUsage {
