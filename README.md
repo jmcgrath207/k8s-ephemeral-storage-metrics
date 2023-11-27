@@ -27,13 +27,18 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 |-----|------|---------|-------------|
 | deploy_type | string | `"Deployment"` | Set as Deployment for single controller to query all nodes or Daemonset |
 | dev.enabled | bool | `false` |  |
-| extra.adjusted_polling_rate | bool | `false` | Create the ephemeral_storage_adjusted_polling_rate metrics to report Adjusted Poll Rate in milliseconds. Typically used for testing. |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.2.1"` |  |
+| image.tag | string | `"1.3.0"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | log_level | string | `"info"` |  |
-| max_node_concurrency | int | `10` | Max amount of concurrent query requests at a time. |
+| max_node_concurrency | int | `10` | Max number of concurrent query requests to the kubernetes API. |
+| metrics | object | `{"adjusted_polling_rate":false,"ephemeral_storage_node_available":true,"ephemeral_storage_node_capacity":true,"ephemeral_storage_node_percentage":true,"ephemeral_storage_pod_usage":true}` | Set metrics you want to enable |
+| metrics.adjusted_polling_rate | bool | `false` | Create the ephemeral_storage_adjusted_polling_rate metrics to report Adjusted Poll Rate in milliseconds. Typically used for testing. |
+| metrics.ephemeral_storage_node_available | bool | `true` | Available ephemeral storage for a node |
+| metrics.ephemeral_storage_node_capacity | bool | `true` | Capacity of ephemeral storage for a node |
+| metrics.ephemeral_storage_node_percentage | bool | `true` | Percentage of ephemeral storage used on a node |
+| metrics.ephemeral_storage_pod_usage | bool | `true` | Current ephemeral byte usage of pod |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
 | prometheus.enable | bool | `true` |  |

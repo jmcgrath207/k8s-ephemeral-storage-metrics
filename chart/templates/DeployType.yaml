@@ -65,14 +65,30 @@ spec:
               value: "{{ .Values.max_node_concurrency }}"
             - name: LOG_LEVEL
               value: "{{ .Values.log_level }}"
-              {{ if .Values.extra.adjusted_polling_rate }}
+              {{- if .Values.metrics.ephemeral_storage_pod_usage }}
+            - name: EPHEMERAL_STORAGE_POD_USAGE
+              value: "{{ .Values.metrics.ephemeral_storage_pod_usage }}"
+              {{- end }}
+              {{- if .Values.metrics.ephemeral_storage_node_available }}
+            - name: EPHEMERAL_STORAGE_NODE_AVAILABLE
+              value: "{{ .Values.metrics.ephemeral_storage_node_available }}"
+              {{- end }}
+              {{- if .Values.metrics.ephemeral_storage_node_capacity }}
+            - name: EPHEMERAL_STORAGE_NODE_CAPACITY
+              value: "{{ .Values.metrics.ephemeral_storage_node_capacity }}"
+              {{- end }}
+              {{- if .Values.metrics.ephemeral_storage_node_percentage }}
+            - name: EPHEMERAL_STORAGE_NODE_PERCENTAGE
+              value: "{{ .Values.metrics.ephemeral_storage_node_percentage }}"
+              {{- end }}
+              {{- if .Values.metrics.adjusted_polling_rate }}
             - name: ADJUSTED_POLLING_RATE
-              value: "{{ .Values.extra.adjusted_polling_rate }}"
-              {{ end }}
-              {{ if eq .Values.deploy_type  "DaemonSet" }}
+              value: "{{ .Values.metrics.adjusted_polling_rate }}"
+              {{- end }}
+              {{- if eq .Values.deploy_type  "DaemonSet" }}
             - name: CURRENT_NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-              {{ end }}
+              {{- end }}
 
