@@ -107,6 +107,19 @@ func checkPrometheus(checkSlice []string) {
 
 }
 
+func WatchContainerPercentage() {
+	status := 0
+	re := regexp.MustCompile(`ephemeral_storage_container_limit_percentage{container="grow-test",node_name="ephemeral-metrics-cluster-worker".+,pod_namespace="ephemeral-metrics"}\s+(.+)`)
+	output := requestPrometheusString()
+	match := re.FindAllStringSubmatch(output, -1)
+	floatValue, _ := strconv.ParseFloat(match[0][1], 64)
+	if floatValue < 100.0 {
+		status = 1
+	}
+	gomega.Expect(status).Should(gomega.Equal(1))
+
+}
+
 func WatchNodePercentage() {
 	status := 0
 	re := regexp.MustCompile(`ephemeral_storage_node_percentage\{node_name="ephemeral-metrics-cluster-control-plane"}\s+(.+)`)
@@ -195,7 +208,8 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 				"ephemeral_storage_node_capacity",
 				"ephemeral_storage_node_percentage",
 				"pod_name=\"k8s-ephemeral-storage", "ephemeral_storage_adjusted_polling_rate",
-				"node_name=\"ephemeral-metrics-cluster-worker", "node_name=\"ephemeral-metrics-cluster-control-plane")
+				"node_name=\"ephemeral-metrics-cluster-worker", "node_name=\"ephemeral-metrics-cluster-control-plane",
+				"ephemeral_storage_container_limit_percentage")
 			checkPrometheus(checkSlice)
 		})
 	})
@@ -215,6 +229,11 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 	ginkgo.Context("Test ephemeral_storage_node_percentage\n", func() {
 		ginkgo.Specify("\nMake sure percentage is not over 100", func() {
 			WatchNodePercentage()
+		})
+	})
+	ginkgo.Context("Test ephemeral_storage_node_percentage\n", func() {
+		ginkgo.Specify("\nMake sure percentage is not over 100", func() {
+			WatchContainerPercentage()
 		})
 	})
 })
