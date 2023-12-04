@@ -12,9 +12,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"net/http"
@@ -27,24 +30,28 @@ import (
 )
 
 var (
-	inCluster                      string
-	clientset                      *kubernetes.Clientset
-	sampleInterval                 int64
-	sampleIntervalMill             int64
-	adjustedPollingRate            bool
-	ephemeralStoragePodUsage       bool
-	ephemeralStorageNodeAvailable  bool
-	ephemeralStorageNodeCapacity   bool
-	ephemeralStorageNodePercentage bool
-	adjustedTimeGaugeVec           *prometheus.GaugeVec
-	deployType                     string
-	nodeWaitGroup                  sync.WaitGroup
-	podGaugeVec                    *prometheus.GaugeVec
-	nodeAvailableGaugeVec          *prometheus.GaugeVec
-	nodeCapacityGaugeVec           *prometheus.GaugeVec
-	nodePercentageGaugeVec         *prometheus.GaugeVec
-	nodeSlice                      []string
-	maxNodeConcurrency             int
+	inCluster                                 string
+	clientset                                 *kubernetes.Clientset
+	sampleInterval                            int64
+	sampleIntervalMill                        int64
+	adjustedPollingRate                       bool
+	ephemeralStoragePodUsage                  bool
+	ephemeralStorageNodeAvailable             bool
+	ephemeralStorageNodeCapacity              bool
+	ephemeralStorageNodePercentage            bool
+	ephemeralStorageContainerLimitsPercentage bool
+	adjustedTimeGaugeVec                      *prometheus.GaugeVec
+	deployType                                string
+	nodeWaitGroup                             sync.WaitGroup
+	podRequestLimitsWaitGroup                 sync.WaitGroup
+	podGaugeVec                               *prometheus.GaugeVec
+	nodeAvailableGaugeVec                     *prometheus.GaugeVec
+	nodeCapacityGaugeVec                      *prometheus.GaugeVec
+	nodePercentageGaugeVec                    *prometheus.GaugeVec
+	containerPercentageLimitsVec              *prometheus.GaugeVec
+	nodeSlice                                 []string
+	maxNodeConcurrency                        int
+	podResourceLookup                         map[string]podContainers
 )
 
 func getEnv(key, fallback string) string {
@@ -112,6 +119,104 @@ type ephemeralStorageMetrics struct {
 			UsedBytes      float64 `json:"usedBytes"`
 		} `json:"ephemeral-storage"`
 	}
+}
+
+type podContainers struct {
+	containers []container
+}
+
+type container struct {
+	name    string
+	request float64
+	limit   float64
+}
+
+// used for getting request and limits from pod manifests
+func getContainerRequestLimits(p v1.Pod) {
+	matchKey := v1.ResourceName("ephemeral-storage")
+	containers := []container{}
+	for _, x := range p.Spec.Containers {
+		setContainer := container{}
+		setContainer.name = x.Name
+		for key, val := range x.Resources.Requests {
+			if key == matchKey {
+				setContainer.request = val.AsApproximateFloat64()
+			}
+		}
+		for key, val := range x.Resources.Limits {
+			if key == matchKey {
+				setContainer.limit = val.AsApproximateFloat64()
+			}
+		}
+		containers = append(containers, setContainer)
+	}
+
+	podResourceLookup[p.Name] = podContainers{containers: containers}
+}
+
+func initGetPodsResourceLimits() {
+	podRequestLimitsWaitGroup.Add(1)
+	podResourceLookup = make(map[string]podContainers)
+	// Init Get List of all pods
+	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("Error getting pods: %v\n", err)
+		os.Exit(1)
+	}
+
+	for _, p := range pods.Items {
+		getContainerRequestLimits(p)
+	}
+	podRequestLimitsWaitGroup.Done()
+
+}
+
+func podWatchResourceLimits() {
+	podRequestLimitsWaitGroup.Wait()
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	sharedInformerFactory := informers.NewSharedInformerFactory(clientset, 2*time.Second)
+	podInformer := sharedInformerFactory.Core().V1().Pods().Informer()
+
+	// Define event handlers for Pod events
+	eventHandler := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			p := obj.(*v1.Pod)
+			getContainerRequestLimits(*p)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			p := newObj.(*v1.Pod)
+			getContainerRequestLimits(*p)
+		},
+		DeleteFunc: func(obj interface{}) {
+			delete(podResourceLookup, obj.(*v1.Pod).Name)
+		},
+	}
+
+	// Register the event handlers with the informer
+	_, err := podInformer.AddEventHandler(eventHandler)
+	if err != nil {
+		log.Err(err)
+		os.Exit(1)
+	}
+
+	// Start the informer to begin watching for Pod events
+	go sharedInformerFactory.Start(stopCh)
+
+	// Use a ticker to trigger the watcher every 15 seconds
+	ticker := time.NewTicker(time.Duration(sampleInterval) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			log.Debug().Msg("Watching podWatchResourceLimits for Pod events...")
+		case <-stopCh:
+			log.Error().Msg("Watcher podWatchResourceLimits stopped.")
+			os.Exit(1)
+		}
+	}
+
 }
 
 func getNodes() {
@@ -187,6 +292,76 @@ type CollectMetric struct {
 	labels prometheus.Labels
 }
 
+func generateLabels(podName string, podNamespace string, nodeName string, usedBytes float64, availableBytes float64, capacityBytes float64) []CollectMetric {
+
+	var labelsList []CollectMetric
+
+	if ephemeralStorageContainerLimitsPercentage {
+		podResult, ok := podResourceLookup[podName]
+		if ok {
+			for _, c := range podResult.containers {
+				labels := prometheus.Labels{"pod_namespace": podNamespace,
+					"pod_name": podName, "node_name": nodeName, "container": c.name}
+				if c.limit != 0 {
+					// Use Limit from Container
+					labelsList = append(labelsList, CollectMetric{
+						value:  (usedBytes / c.limit) * 100.0,
+						name:   "ephemeral_storage_container_limit_percentage",
+						labels: labels,
+					})
+				} else {
+					// Default to Node Available Ephemeral Storage
+					labelsList = append(labelsList, CollectMetric{
+						value:  (availableBytes / capacityBytes) * 100.0,
+						name:   "ephemeral_storage_container_limit_percentage",
+						labels: labels,
+					})
+				}
+			}
+		}
+	}
+
+	if ephemeralStoragePodUsage {
+		labelsList = append(labelsList, CollectMetric{
+			value: usedBytes,
+			name:  "ephemeral_storage_pod_usage",
+			labels: prometheus.Labels{"pod_namespace": podNamespace,
+				"pod_name": podName, "node_name": nodeName},
+		})
+		log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
+	}
+	if ephemeralStorageNodeAvailable {
+		labelsList = append(labelsList, CollectMetric{
+			value:  availableBytes,
+			name:   "ephemeral_storage_node_available",
+			labels: prometheus.Labels{"node_name": nodeName}},
+		)
+		log.Debug().Msg(fmt.Sprintf("Node: %s availble bytes: %f", nodeName, availableBytes))
+	}
+
+	if ephemeralStorageNodeCapacity {
+		labelsList = append(labelsList, CollectMetric{
+			value:  capacityBytes,
+			name:   "ephemeral_storage_node_capacity",
+			labels: prometheus.Labels{"node_name": nodeName}},
+		)
+		log.Debug().Msg(fmt.Sprintf("Node: %s capacity bytes: %f", nodeName, capacityBytes))
+	}
+
+	if ephemeralStorageNodeCapacity {
+		percentage := (availableBytes / capacityBytes) * 100.0
+		labelsList = append(labelsList, CollectMetric{
+			value:  percentage,
+			name:   "ephemeral_storage_node_percentage",
+			labels: prometheus.Labels{"node_name": nodeName}},
+		)
+		log.Debug().Msg(fmt.Sprintf("Node: %s percentage used: %f", nodeName, percentage))
+	}
+
+	return labelsList
+
+}
+
 func setMetrics(node string) {
 
 	var labelsList []CollectMetric
@@ -215,44 +390,8 @@ func setMetrics(node string) {
 			log.Warn().Msg(fmt.Sprintf("pod %s/%s on %s has no metrics on its ephemeral storage usage", podName, podNamespace, nodeName))
 			continue
 		}
-
-		if ephemeralStoragePodUsage {
-			labelsList = append(labelsList, CollectMetric{
-				value: usedBytes,
-				name:  "ephemeral_storage_pod_usage",
-				labels: prometheus.Labels{"pod_namespace": podNamespace,
-					"pod_name": podName, "node_name": nodeName},
-			})
-			log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
-		}
-		if ephemeralStorageNodeAvailable {
-			labelsList = append(labelsList, CollectMetric{
-				value:  availableBytes,
-				name:   "ephemeral_storage_node_available",
-				labels: prometheus.Labels{"node_name": nodeName}},
-			)
-			log.Debug().Msg(fmt.Sprintf("Node: %s availble bytes: %f", nodeName, availableBytes))
-		}
-
-		if ephemeralStorageNodeCapacity {
-			labelsList = append(labelsList, CollectMetric{
-				value:  capacityBytes,
-				name:   "ephemeral_storage_node_capacity",
-				labels: prometheus.Labels{"node_name": nodeName}},
-			)
-			log.Debug().Msg(fmt.Sprintf("Node: %s capacity bytes: %f", nodeName, capacityBytes))
-		}
-
-		if ephemeralStorageNodeCapacity {
-			percentage := (availableBytes / capacityBytes) * 100.0
-			labelsList = append(labelsList, CollectMetric{
-				value:  percentage,
-				name:   "ephemeral_storage_node_percentage",
-				labels: prometheus.Labels{"node_name": nodeName}},
-			)
-			log.Debug().Msg(fmt.Sprintf("Node: %s percentage used: %f", nodeName, percentage))
-		}
-
+		labelsList = append(labelsList, generateLabels(podName, podNamespace, nodeName, usedBytes,
+			availableBytes, capacityBytes)...)
 	}
 
 	// Reset Metrics for this Node name to remove dead pods
@@ -263,6 +402,8 @@ func setMetrics(node string) {
 		switch x.name {
 		case "ephemeral_storage_pod_usage":
 			podGaugeVec.With(x.labels).Set(x.value)
+		case "ephemeral_storage_container_limit_percentage":
+			containerPercentageLimitsVec.With(x.labels).Set(x.value)
 		case "ephemeral_storage_node_available":
 			nodeAvailableGaugeVec.With(x.labels).Set(x.value)
 		case "ephemeral_storage_node_capacity":
@@ -301,6 +442,27 @@ func createMetrics() {
 		)
 
 		prometheus.MustRegister(podGaugeVec)
+
+	}
+
+	if ephemeralStorageContainerLimitsPercentage {
+		containerPercentageLimitsVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "ephemeral_storage_container_limit_percentage",
+			Help: "Percentage of ephemeral storage used by a container in a pod",
+		},
+			[]string{
+				// name of pod for Ephemeral Storage
+				"pod_name",
+				// namespace of pod for Ephemeral Storage
+				"pod_namespace",
+				// Name of Node where pod is placed.
+				"node_name",
+				// Name of container
+				"container",
+			},
+		)
+
+		prometheus.MustRegister(containerPercentageLimitsVec)
 
 	}
 
@@ -364,6 +526,9 @@ func createMetrics() {
 func getMetrics() {
 
 	nodeWaitGroup.Wait()
+	if ephemeralStorageContainerLimitsPercentage {
+		podRequestLimitsWaitGroup.Wait()
+	}
 
 	p, _ := ants.NewPoolWithFunc(maxNodeConcurrency, func(node interface{}) {
 		setMetrics(node.(string))
@@ -410,6 +575,7 @@ func main() {
 	ephemeralStorageNodeAvailable, _ = strconv.ParseBool(getEnv("EPHEMERAL_STORAGE_NODE_AVAILABLE", "false"))
 	ephemeralStorageNodeCapacity, _ = strconv.ParseBool(getEnv("EPHEMERAL_STORAGE_NODE_CAPACITY", "false"))
 	ephemeralStorageNodePercentage, _ = strconv.ParseBool(getEnv("EPHEMERAL_STORAGE_NODE_PERCENTAGE", "false"))
+	ephemeralStorageContainerLimitsPercentage, _ = strconv.ParseBool(getEnv("EPHEMERAL_STORAGE_CONTAINER_LIMIT_PERCENTAGE", "false"))
 	deployType = getEnv("DEPLOY_TYPE", "DaemonSet")
 	sampleInterval, _ = strconv.ParseInt(getEnv("SCRAPE_INTERVAL", "15"), 10, 64)
 	maxNodeConcurrency, _ = strconv.Atoi(getEnv("MAX_NODE_CONCURRENCY", "10"))
@@ -418,6 +584,10 @@ func main() {
 	setLogger()
 	getK8sClient()
 	createMetrics()
+	if ephemeralStorageContainerLimitsPercentage {
+		go initGetPodsResourceLimits()
+		go podWatchResourceLimits()
+	}
 	go getNodes()
 	go getMetrics()
 	if deployType != "Deployment" && deployType != "DaemonSet" {

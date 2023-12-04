@@ -18,6 +18,11 @@ spec:
         - image: local.io/local/shrink-test:latest
           imagePullPolicy: Never
           name: shrink-test
+          resources:
+            requests:
+              ephemeral-storage: "1Mi"
+            limits:
+              ephemeral-storage: "5Mi"
 
 ---
 
@@ -40,4 +45,9 @@ spec:
         - image: local.io/local/grow-test:latest
           imagePullPolicy: Never
           name: grow-test
+          resources:
+            requests:
+              ephemeral-storage: "1Mi"
+            limits:
+              ephemeral-storage: "5Mi"
  {{ end }}
