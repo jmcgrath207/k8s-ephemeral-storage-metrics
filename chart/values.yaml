@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics
-  tag: 1.4.0
+  tag: 1.4.1
   imagePullPolicy: IfNotPresent
 
 # -- Set metrics you want to enable
@@ -31,9 +31,11 @@ prometheus:
   release: kube-prometheus-stack
 
 
-# For local development and testing
+# -- For local development of kind and/or deploy grow and shrink test pods
 dev:
   enabled: false
+  image:
+    imagePullPolicy: IfNotPresent
 
 podAnnotations: {}
 

@@ -19,3 +19,13 @@ docker build -f Dockerfile -t ghcr.io/jmcgrath207/$package:$VERSION .
 docker build -f Dockerfile -t ghcr.io/jmcgrath207/$package:latest .
 docker push ghcr.io/jmcgrath207/$package:$VERSION
 docker push ghcr.io/jmcgrath207/$package:latest
+
+docker build -f DockerfileTestGrow -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest .
+docker build -f DockerfileTestGrow -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:$VERSION .
+docker push ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:$VERSION
+docker push ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest
+
+docker build -f DockerfileTestGrow -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest .
+docker build -f DockerfileTestGrow -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:$VERSION .
+docker push ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:$VERSION
+docker push ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest

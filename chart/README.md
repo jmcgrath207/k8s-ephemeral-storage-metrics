@@ -11,10 +11,10 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | deploy_type | string | `"Deployment"` | Set as Deployment for single controller to query all nodes or Daemonset |
-| dev.enabled | bool | `false` |  |
+| dev | object | `{"enabled":false,"image":{"imagePullPolicy":"IfNotPresent"}}` | For local development of kind and/or deploy grow and shrink test pods |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.4.0"` |  |
+| image.tag | string | `"1.4.1"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | log_level | string | `"info"` |  |
 | max_node_concurrency | int | `10` | Max number of concurrent query requests to the kubernetes API. |
