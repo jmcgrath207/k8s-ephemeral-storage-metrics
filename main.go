@@ -348,7 +348,7 @@ func generateLabels(podName string, podNamespace string, nodeName string, usedBy
 		log.Debug().Msg(fmt.Sprintf("Node: %s capacity bytes: %f", nodeName, capacityBytes))
 	}
 
-	if ephemeralStorageNodeCapacity {
+	if ephemeralStorageNodePercentage {
 		percentage := (availableBytes / capacityBytes) * 100.0
 		labelsList = append(labelsList, CollectMetric{
 			value:  percentage,
