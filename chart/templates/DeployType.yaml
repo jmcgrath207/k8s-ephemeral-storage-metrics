@@ -22,6 +22,14 @@ spec:
       serviceAccountName: k8s-ephemeral-storage-metrics
       nodeSelector:
       {{- toYaml .Values.nodeSelector | nindent 8 }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: metrics
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
