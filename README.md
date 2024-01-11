@@ -30,7 +30,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | dev | object | `{"enabled":false,"image":{"imagePullPolicy":"IfNotPresent"}}` | For local development of kind and/or deploy grow and shrink test pods |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.4.2"` |  |
+| image.tag | string | `"1.4.3"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | log_level | string | `"info"` |  |
 | max_node_concurrency | int | `10` | Max number of concurrent query requests to the kubernetes API. |
@@ -45,7 +45,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | podAnnotations | object | `{}` |  |
 | prometheus.enable | bool | `true` |  |
 | prometheus.release | string | `"kube-prometheus-stack"` |  |
-| tolerations | object | `[]` |  |
+| tolerations | list | `[]` |  |
 
 ## Contribute
 
