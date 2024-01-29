@@ -120,6 +120,16 @@ func WatchContainerPercentage() {
 
 }
 
+func WatchContainerVolumePercentage() {
+	// TODO: add test for this once evictions for dead pods is handled.
+	//ephemeral_storage_container_volume_limit_percentage
+
+}
+
+func WatchDeadPod() {
+	// TODO: Deploy a pod and then remove it. Make sure it's completely evicted from prom metrics.
+}
+
 func WatchNodePercentage() {
 	status := 0
 	re := regexp.MustCompile(`ephemeral_storage_node_percentage\{node_name="ephemeral-metrics-cluster-control-plane"}\s+(.+)`)

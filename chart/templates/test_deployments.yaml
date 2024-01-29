@@ -22,7 +22,19 @@ spec:
             requests:
               ephemeral-storage: "1Mi"
             limits:
-              ephemeral-storage: "5Mi"
+              ephemeral-storage: "60Mi"
+          volumeMounts:
+            - mountPath: /cache
+              name: cache-volume-1
+            - mountPath: /cachez
+              name: cache-volume-3
+      volumes:
+        - name: cache-volume-1
+          emptyDir:
+            sizeLimit: 24Mi
+        - name: cache-volume-3
+          emptyDir:
+            sizeLimit: 24Mi
 
 ---
 
@@ -49,5 +61,17 @@ spec:
             requests:
               ephemeral-storage: "1Mi"
             limits:
-              ephemeral-storage: "5Mi"
+              ephemeral-storage: "60Mi"
+          volumeMounts:
+            - mountPath: /cache
+              name: cache-volume-two
+            - mountPath: /cachez
+              name: cache-volume-four
+      volumes:
+        - name: cache-volume-two
+          emptyDir:
+            sizeLimit: 24Mi
+        - name: cache-volume-four
+          emptyDir:
+            sizeLimit: 24Mi
  {{ end }}

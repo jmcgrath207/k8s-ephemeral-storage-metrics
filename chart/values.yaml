@@ -7,6 +7,8 @@ image:
 metrics:
   # -- Percentage of ephemeral storage used by a container in a pod
   ephemeral_storage_container_limit_percentage: true
+  # -- Percentage of ephemeral storage used by a container's volume in a pod
+  ephemeral_storage_container_volume_limit_percentage: true
   # -- Current ephemeral byte usage of pod
   ephemeral_storage_pod_usage: true
   # -- Available ephemeral storage for a node

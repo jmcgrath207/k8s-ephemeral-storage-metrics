@@ -33,12 +33,13 @@ function main() {
   "metrics.adjusted_polling_rate=true"
   )
 
-  if [[ $ENV =~ "e2e"   ]]; then
-    docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f DockerfileTestGrow -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest .
-    kind load docker-image -v 9 --name "${DEPLOYMENT_NAME}-cluster" --nodes "${DEPLOYMENT_NAME}-cluster-worker" "ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest"
+  docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f DockerfileTestGrow -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest .
+  kind load docker-image -v 9 --name "${DEPLOYMENT_NAME}-cluster" --nodes "${DEPLOYMENT_NAME}-cluster-worker" "ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest"
 
-    docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f DockerfileTestShrink -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest .
-    kind load docker-image -v 9 --name "${DEPLOYMENT_NAME}-cluster" --nodes "${DEPLOYMENT_NAME}-cluster-worker" "ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest"
+  docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f DockerfileTestShrink -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest .
+  kind load docker-image -v 9 --name "${DEPLOYMENT_NAME}-cluster" --nodes "${DEPLOYMENT_NAME}-cluster-worker" "ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest"
+
+  if [[ $ENV =~ "e2e"   ]]; then
 
     e2e_values_arr=("interval=5")
     common_set_values_arr+=("${e2e_values_arr[@]}")
