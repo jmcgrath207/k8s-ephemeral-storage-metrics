@@ -50,7 +50,7 @@ var (
 	nodeCapacityGaugeVec                            *prometheus.GaugeVec
 	nodePercentageGaugeVec                          *prometheus.GaugeVec
 	containerPercentageLimitsVec                    *prometheus.GaugeVec
-	containerVolumePercentageLimitsVec              *prometheus.GaugeVec
+	containerPercentageVolumeLimitsVec              *prometheus.GaugeVec
 	nodeSlice                                       []string
 	maxNodeConcurrency                              int
 	podResourceLookup                               map[string]pod
@@ -244,11 +244,11 @@ func podWatch() {
 			getPodData(*p)
 		},
 		DeleteFunc: func(obj interface{}) {
+			p := obj.(*v1.Pod)
 			podResourceLookupMutex.Lock()
-			delete(podResourceLookup, obj.(*v1.Pod).Name)
+			delete(podResourceLookup, p.Name)
 			podResourceLookupMutex.Unlock()
-			// TODO: remove pod from prom metrics.
-			// ex. podGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": nodeName})
+			evictPodFromMetrics(*p)
 		},
 	}
 
@@ -276,6 +276,15 @@ func podWatch() {
 		}
 	}
 
+}
+
+func evictPodFromMetrics(p v1.Pod) {
+
+	podGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	for _, c := range p.Spec.Containers {
+		containerPercentageLimitsVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
+		containerPercentageVolumeLimitsVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
+	}
 }
 
 func getNodes() {
@@ -308,7 +317,9 @@ func getNodes() {
 
 		// Evict Metrics where the node doesn't exist anymore.
 		for _, deadNode := range deadNodesSet.ToSlice() {
-			podGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": deadNode})
+			nodeAvailableGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": deadNode})
+			nodeCapacityGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": deadNode})
+			nodePercentageGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": deadNode})
 			log.Info().Msgf("Node %s does not exist. Removing from monitoring", deadNode)
 		}
 
@@ -345,15 +356,9 @@ func queryNode(node string) ([]byte, error) {
 
 }
 
-type CollectMetric struct {
-	value  float64
-	name   string
-	labels prometheus.Labels
-}
+func createMetricsValues(podName string, podNamespace string, nodeName string, usedBytes float64, availableBytes float64, capacityBytes float64, volumes []volume) {
 
-func generateLabels(podName string, podNamespace string, nodeName string, usedBytes float64, availableBytes float64, capacityBytes float64, volumes []volume) []CollectMetric {
-
-	var labelsList []CollectMetric
+	var setValue float64
 	podResourceLookupMutex.RLock()
 	podResult, okPodResult := podResourceLookup[podName]
 	podResourceLookupMutex.RUnlock()
@@ -361,7 +366,8 @@ func generateLabels(podName string, podNamespace string, nodeName string, usedBy
 	// TODO: something seems wrong about the metrics.
 	//		the volume capacityBytes is not reflected in this query
 	// 		kubectl get --raw "/api/v1/nodes/ephemeral-metrics-cluster-worker/proxy/stats/summary"
-	// 		might need to source it from the pod spec
+	// 		need to source it from the pod spec
+	// 		make issue upstream with CA advisor
 	// TODO: need to do a grow and shrink test for this.
 	if ephemeralStorageContainerVolumeLimitsPercentage {
 		// TODO: what a mess...need to figure out a better way.
@@ -374,11 +380,7 @@ func generateLabels(podName string, podNamespace string, nodeName string, usedBy
 								labels := prometheus.Labels{"pod_namespace": podNamespace,
 									"pod_name": podName, "node_name": nodeName, "container": c.name, "volume_name": v.Name,
 									"mount_path": edv.mountPath}
-								labelsList = append(labelsList, CollectMetric{
-									value:  (float64(v.UsedBytes) / edv.sizeLimit) * 100.0,
-									name:   "ephemeral_storage_container_volume_limit_percentage",
-									labels: labels,
-								})
+								containerPercentageVolumeLimitsVec.With(labels).Set((float64(v.UsedBytes) / edv.sizeLimit) * 100.0)
 							}
 						}
 					}
@@ -394,67 +396,42 @@ func generateLabels(podName string, podNamespace string, nodeName string, usedBy
 					"pod_name": podName, "node_name": nodeName, "container": c.name}
 				if c.limit != 0 {
 					// Use Limit from Container
-					labelsList = append(labelsList, CollectMetric{
-						value:  (usedBytes / c.limit) * 100.0,
-						name:   "ephemeral_storage_container_limit_percentage",
-						labels: labels,
-					})
+					setValue = (usedBytes / c.limit) * 100.0
 				} else {
 					// Default to Node Available Ephemeral Storage
-					labelsList = append(labelsList, CollectMetric{
-						value:  (availableBytes / capacityBytes) * 100.0,
-						name:   "ephemeral_storage_container_limit_percentage",
-						labels: labels,
-					})
+					setValue = (availableBytes / capacityBytes) * 100.0
 				}
+				containerPercentageLimitsVec.With(labels).Set(setValue)
 			}
 		}
 	}
 
 	if ephemeralStoragePodUsage {
-		labelsList = append(labelsList, CollectMetric{
-			value: usedBytes,
-			name:  "ephemeral_storage_pod_usage",
-			labels: prometheus.Labels{"pod_namespace": podNamespace,
-				"pod_name": podName, "node_name": nodeName},
-		})
+		labels := prometheus.Labels{"pod_namespace": podNamespace,
+			"pod_name": podName, "node_name": nodeName}
+		podGaugeVec.With(labels).Set(usedBytes)
 		log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
 	}
 	if ephemeralStorageNodeAvailable {
-		labelsList = append(labelsList, CollectMetric{
-			value:  availableBytes,
-			name:   "ephemeral_storage_node_available",
-			labels: prometheus.Labels{"node_name": nodeName}},
-		)
+		nodeAvailableGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(availableBytes)
 		log.Debug().Msg(fmt.Sprintf("Node: %s availble bytes: %f", nodeName, availableBytes))
 	}
 
 	if ephemeralStorageNodeCapacity {
-		labelsList = append(labelsList, CollectMetric{
-			value:  capacityBytes,
-			name:   "ephemeral_storage_node_capacity",
-			labels: prometheus.Labels{"node_name": nodeName}},
-		)
+		nodeCapacityGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(capacityBytes)
 		log.Debug().Msg(fmt.Sprintf("Node: %s capacity bytes: %f", nodeName, capacityBytes))
 	}
 
 	if ephemeralStorageNodePercentage {
-		percentage := (availableBytes / capacityBytes) * 100.0
-		labelsList = append(labelsList, CollectMetric{
-			value:  percentage,
-			name:   "ephemeral_storage_node_percentage",
-			labels: prometheus.Labels{"node_name": nodeName}},
-		)
-		log.Debug().Msg(fmt.Sprintf("Node: %s percentage used: %f", nodeName, percentage))
+		setValue = (availableBytes / capacityBytes) * 100.0
+		nodePercentageGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(setValue)
+		log.Debug().Msg(fmt.Sprintf("Node: %s percentage used: %f", nodeName, setValue))
 	}
-
-	return labelsList
 
 }
 
 func setMetrics(node string) {
 
-	var labelsList []CollectMetric
 	var data ephemeralStorageMetrics
 
 	start := time.Now()
@@ -480,31 +457,8 @@ func setMetrics(node string) {
 			log.Warn().Msg(fmt.Sprintf("pod %s/%s on %s has no metrics on its ephemeral storage usage", podName, podNamespace, nodeName))
 			continue
 		}
-		labelsList = append(labelsList, generateLabels(podName, podNamespace, nodeName, usedBytes,
-			availableBytes, capacityBytes, p.Volumes)...)
-	}
-
-	// TODO: remove these lines
-	//		add methods like podGaugeVec.With(x.labels).Set(x.value) to generate labels.
-	//		and by first call partial remove on a per pod basis
-	//		ex. podGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": pod_name})
-	for _, x := range labelsList {
-		switch x.name {
-		case "ephemeral_storage_pod_usage":
-			podGaugeVec.With(x.labels).Set(x.value)
-		case "ephemeral_storage_container_limit_percentage":
-			containerPercentageLimitsVec.With(x.labels).Set(x.value)
-		case "ephemeral_storage_container_volume_limit_percentage":
-			containerVolumePercentageLimitsVec.With(x.labels).Set(x.value)
-		case "ephemeral_storage_node_available":
-			nodeAvailableGaugeVec.With(x.labels).Set(x.value)
-		case "ephemeral_storage_node_capacity":
-			nodeCapacityGaugeVec.With(x.labels).Set(x.value)
-		case "ephemeral_storage_node_percentage":
-			nodePercentageGaugeVec.With(x.labels).Set(x.value)
-
-		}
-
+		createMetricsValues(podName, podNamespace, nodeName, usedBytes,
+			availableBytes, capacityBytes, p.Volumes)
 	}
 
 	adjustTime := sampleIntervalMill - time.Now().Sub(start).Milliseconds()
@@ -519,113 +473,97 @@ func setMetrics(node string) {
 
 func createMetrics() {
 
-	// TODO: Will the metrics still show up if I also always register?
-	//		Idea: I want to always registry so we can call clean up using a python like partials without conditionals.
-	if ephemeralStoragePodUsage {
-		podGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "ephemeral_storage_pod_usage",
-			Help: "Current ephemeral byte usage of pod",
+	podGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_pod_usage",
+		Help: "Current ephemeral byte usage of pod",
+	},
+		[]string{
+			// name of pod for Ephemeral Storage
+			"pod_name",
+			// namespace of pod for Ephemeral Storage
+			"pod_namespace",
+			// Name of Node where pod is placed.
+			"node_name",
 		},
-			[]string{
-				// name of pod for Ephemeral Storage
-				"pod_name",
-				// namespace of pod for Ephemeral Storage
-				"pod_namespace",
-				// Name of Node where pod is placed.
-				"node_name",
-			},
-		)
+	)
 
-		prometheus.MustRegister(podGaugeVec)
+	prometheus.MustRegister(podGaugeVec)
 
-	}
-
-	if ephemeralStorageContainerLimitsPercentage {
-		containerPercentageLimitsVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "ephemeral_storage_container_limit_percentage",
-			Help: "Percentage of ephemeral storage used by a container in a pod",
+	containerPercentageLimitsVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_limit_percentage",
+		Help: "Percentage of ephemeral storage used by a container in a pod",
+	},
+		[]string{
+			// name of pod for Ephemeral Storage
+			"pod_name",
+			// namespace of pod for Ephemeral Storage
+			"pod_namespace",
+			// Name of Node where pod is placed.
+			"node_name",
+			// Name of container
+			"container",
 		},
-			[]string{
-				// name of pod for Ephemeral Storage
-				"pod_name",
-				// namespace of pod for Ephemeral Storage
-				"pod_namespace",
-				// Name of Node where pod is placed.
-				"node_name",
-				// Name of container
-				"container",
-			},
-		)
+	)
 
-		prometheus.MustRegister(containerPercentageLimitsVec)
+	prometheus.MustRegister(containerPercentageLimitsVec)
 
-	}
-	if ephemeralStorageContainerVolumeLimitsPercentage {
-		containerVolumePercentageLimitsVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "ephemeral_storage_container_volume_limit_percentage",
-			Help: "Percentage of ephemeral storage used by a container's volume in a pod",
+	containerPercentageVolumeLimitsVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_volume_limit_percentage",
+		Help: "Percentage of ephemeral storage used by a container's volume in a pod",
+	},
+		[]string{
+			// name of pod for Ephemeral Storage
+			"pod_name",
+			// namespace of pod for Ephemeral Storage
+			"pod_namespace",
+			// Name of Node where pod is placed.
+			"node_name",
+			// Name of container
+			"container",
+			// Name of Volume
+			"volume_name",
+			// Name of Mount Path
+			"mount_path",
 		},
-			[]string{
-				// name of pod for Ephemeral Storage
-				"pod_name",
-				// namespace of pod for Ephemeral Storage
-				"pod_namespace",
-				// Name of Node where pod is placed.
-				"node_name",
-				// Name of container
-				"container",
-				// Name of Volume
-				"volume_name",
-				// Name of Mount Path
-				"mount_path",
-			},
-		)
+	)
 
-		prometheus.MustRegister(containerVolumePercentageLimitsVec)
+	prometheus.MustRegister(containerPercentageVolumeLimitsVec)
 
-	}
-
-	if ephemeralStorageNodeAvailable {
-		nodeAvailableGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "ephemeral_storage_node_available",
-			Help: "Available ephemeral storage for a node",
+	nodeAvailableGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_node_available",
+		Help: "Available ephemeral storage for a node",
+	},
+		[]string{
+			// Name of Node where pod is placed.
+			"node_name",
 		},
-			[]string{
-				// Name of Node where pod is placed.
-				"node_name",
-			},
-		)
+	)
 
-		prometheus.MustRegister(nodeAvailableGaugeVec)
-	}
+	prometheus.MustRegister(nodeAvailableGaugeVec)
 
-	if ephemeralStorageNodeCapacity {
-		nodeCapacityGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "ephemeral_storage_node_capacity",
-			Help: "Capacity of ephemeral storage for a node",
+	nodeCapacityGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_node_capacity",
+		Help: "Capacity of ephemeral storage for a node",
+	},
+		[]string{
+			// Name of Node where pod is placed.
+			"node_name",
 		},
-			[]string{
-				// Name of Node where pod is placed.
-				"node_name",
-			},
-		)
+	)
 
-		prometheus.MustRegister(nodeCapacityGaugeVec)
-	}
+	prometheus.MustRegister(nodeCapacityGaugeVec)
 
-	if ephemeralStorageNodePercentage {
-		nodePercentageGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "ephemeral_storage_node_percentage",
-			Help: "Percentage of ephemeral storage used on a node",
+	nodePercentageGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_node_percentage",
+		Help: "Percentage of ephemeral storage used on a node",
+	},
+		[]string{
+			// Name of Node where pod is placed.
+			"node_name",
 		},
-			[]string{
-				// Name of Node where pod is placed.
-				"node_name",
-			},
-		)
+	)
 
-		prometheus.MustRegister(nodePercentageGaugeVec)
-	}
+	prometheus.MustRegister(nodePercentageGaugeVec)
 
 	if adjustedPollingRate {
 		adjustedTimeGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
