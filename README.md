@@ -1,14 +1,16 @@
-# K8s Ephemeral Storage Metrics.
+# K8s Ephemeral Storage Metrics
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Actions Status](https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/workflows/ci/badge.svg)](https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/actions)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/k8s-ephemeral-storage-metrics)](https://artifacthub.io/packages/helm/k8s-ephemeral-storage-metrics/k8s-ephemeral-storage-metrics)
 
-The goal of this project is to export ephemeral storage metric usage per pod to Prometheus that is address in this 
-issue [Here](https://github.com/kubernetes/kubernetes/issues/69507)
+A prometheus ephemeral storage metric exporter for pods, containers,
+nodes, and volumes.
 
-It accomplishes this by creating a Service Monitor 
+This project was created
+to address lack of monitoring in [Kubernetes](https://github.com/kubernetes/kubernetes/issues/69507)
 
+This project does not monitor CSI backed ephemeral storage ex. [Generic ephemeral volumes](https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/#generic-ephemeral-volumes)
 
 ![main image](img/screenshot.png)
 
@@ -30,13 +32,14 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | dev | object | `{"enabled":false,"image":{"imagePullPolicy":"IfNotPresent"}}` | For local development of kind and/or deploy grow and shrink test pods |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.4.4"` |  |
+| image.tag | string | `"1.5.0"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | log_level | string | `"info"` |  |
 | max_node_concurrency | int | `10` | Max number of concurrent query requests to the kubernetes API. |
-| metrics | object | `{"adjusted_polling_rate":false,"ephemeral_storage_container_limit_percentage":true,"ephemeral_storage_node_available":true,"ephemeral_storage_node_capacity":true,"ephemeral_storage_node_percentage":true,"ephemeral_storage_pod_usage":true}` | Set metrics you want to enable |
+| metrics | object | `{"adjusted_polling_rate":false,"ephemeral_storage_container_limit_percentage":true,"ephemeral_storage_container_volume_limit_percentage":true,"ephemeral_storage_node_available":true,"ephemeral_storage_node_capacity":true,"ephemeral_storage_node_percentage":true,"ephemeral_storage_pod_usage":true}` | Set metrics you want to enable |
 | metrics.adjusted_polling_rate | bool | `false` | Create the ephemeral_storage_adjusted_polling_rate metrics to report Adjusted Poll Rate in milliseconds. Typically used for testing. |
 | metrics.ephemeral_storage_container_limit_percentage | bool | `true` | Percentage of ephemeral storage used by a container in a pod |
+| metrics.ephemeral_storage_container_volume_limit_percentage | bool | `true` | Percentage of ephemeral storage used by a container's volume in a pod |
 | metrics.ephemeral_storage_node_available | bool | `true` | Available ephemeral storage for a node |
 | metrics.ephemeral_storage_node_capacity | bool | `true` | Capacity of ephemeral storage for a node |
 | metrics.ephemeral_storage_node_percentage | bool | `true` | Percentage of ephemeral storage used on a node |
