@@ -44,6 +44,9 @@ spec:
             - name: debug
               containerPort: 30002
               protocol: TCP
+            - name: pprof
+              containerPort: 6060
+              protocol: TCP
               {{ end }}
           livenessProbe:
             failureThreshold: 10
@@ -100,6 +103,10 @@ spec:
               {{- if .Values.metrics.adjusted_polling_rate }}
             - name: ADJUSTED_POLLING_RATE
               value: "{{ .Values.metrics.adjusted_polling_rate }}"
+              {{- end }}
+              {{- if .Values.pprof }}
+            - name: PPROF
+              value: "{{ .Values.pprof }}"
               {{- end }}
               {{- if eq .Values.deploy_type  "DaemonSet" }}
             - name: CURRENT_NODE_NAME

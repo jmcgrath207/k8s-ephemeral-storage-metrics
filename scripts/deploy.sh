@@ -31,6 +31,7 @@ function main() {
   "dev.enabled=true",
   "dev.image.imagePullPolicy=Never"
   "metrics.adjusted_polling_rate=true"
+  "pprof=true"
   )
 
   docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f DockerfileTestGrow -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest .
@@ -71,6 +72,8 @@ function main() {
   sudo ss -aK '( dport = :9100 or sport = :9100 )' | true
   # Prometheus Port
   sudo ss -aK '( dport = :9090 or sport = :9090 )' | true
+  # Pprof Port
+  sudo ss -aK '( dport = :6060 or sport = :6060 )' | true
 
   # Start Exporter Port Forward
   (
@@ -82,6 +85,11 @@ function main() {
   (
     sleep 10
     printf "\n\n" && while :; do kubectl port-forward -n $DEPLOYMENT_NAME service/prometheus-operated  9090:9090 || sleep 5; done
+  ) &
+  # Start Pprof Forward
+  (
+    sleep 10
+    printf "\n\n" && while :; do kubectl port-forward -n $DEPLOYMENT_NAME service/pprof 6060:6060 || sleep 5; done
   ) &
 
   if [[ $ENV == "debug" ]]; then
