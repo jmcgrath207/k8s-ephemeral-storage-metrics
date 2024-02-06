@@ -21,7 +21,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"net/http"
-	_ "net/http/pprof"
+	"net/http/pprof"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -625,6 +625,19 @@ func setLogger() {
 
 }
 
+func enablePprof() {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	err := http.ListenAndServe("localhost:6060", mux)
+	if err != nil {
+		log.Error().Msgf("Pprof could not start localhost:")
+	}
+}
+
 func main() {
 	flag.Parse()
 	port := getEnv("METRICS_PORT", "9100")
@@ -636,11 +649,15 @@ func main() {
 	ephemeralStorageNodePercentage, _ = strconv.ParseBool(getEnv("EPHEMERAL_STORAGE_NODE_PERCENTAGE", "false"))
 	ephemeralStorageContainerLimitsPercentage, _ = strconv.ParseBool(getEnv("EPHEMERAL_STORAGE_CONTAINER_LIMIT_PERCENTAGE", "false"))
 	ephemeralStorageContainerVolumeLimitsPercentage, _ = strconv.ParseBool(getEnv("EPHEMERAL_STORAGE_CONTAINER_VOLUME_LIMITS_PERCENTAGE", "false"))
+	pprofEnabled, _ := strconv.ParseBool(getEnv("PPROF", "false"))
 	deployType = getEnv("DEPLOY_TYPE", "DaemonSet")
 	sampleInterval, _ = strconv.ParseInt(getEnv("SCRAPE_INTERVAL", "15"), 10, 64)
 	maxNodeConcurrency, _ = strconv.Atoi(getEnv("MAX_NODE_CONCURRENCY", "10"))
 	sampleIntervalMill = sampleInterval * 1000
 
+	if pprofEnabled {
+		go enablePprof()
+	}
 	setLogger()
 	getK8sClient()
 	createMetrics()
