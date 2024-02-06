@@ -57,11 +57,11 @@ release-helm:
 	sed -i "s!k8s-ephemeral-storage-metrics-${VERSION}.tgz!https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/releases/download/${VERSION}/k8s-ephemeral-storage-metrics-${VERSION}.tgz!g" index.yaml
 	cd ..
 
-release: github_login release-docker release-helm helm-docs
-	# ex. make VERSION=1.5.0 release
+release: release-docker release-helm helm-docs
+	# ex. make VERSION=1.5.1 release
 
 release-github: github_login
-	# ex. make VERSION=1.5.0 release-github
+	# ex. make VERSION=1.5.1 release-github
 	gh release create ${VERSION} --generate-notes
 	gh release upload ${VERSION} "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz"
 	rm chart/k8s-ephemeral-storage-metrics-*.tgz
