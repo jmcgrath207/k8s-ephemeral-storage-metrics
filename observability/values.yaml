@@ -1,0 +1,33 @@
+# Chart used for observability testing.
+
+
+# https://grafana.github.io/grafana-operator/docs/examples/basic/readme/
+grafana-operator:
+  enabled: true
+
+pyroscope:
+  enabled: true
+
+kube-prometheus-stack:
+  enabled: true
+  grafana:
+    enabled: false
+  kubeApiServer:
+    enabled: false
+  kubernetesServiceMonitors:
+    enabled: false
+  kubelet:
+    enabled: false
+  kubeControllerManager:
+    enabled: false
+  kube-state-metrics:
+    enabled: false
+  prometheus-node-exporter:
+    enabled: false
+  alertmanager:
+    enabled: false
+  prometheus:
+    prometheusSpec:
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      probeSelectorNilUsesHelmValues: false

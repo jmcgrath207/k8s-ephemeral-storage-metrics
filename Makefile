@@ -30,6 +30,9 @@ helm-docs:
 new_kind:
 	./scripts/create_kind.sh
 
+destroy_kind:
+	kind delete clusters ephemeral-metrics-cluster
+
 init: fmt vet
 
 deploy_debug: init
@@ -40,6 +43,9 @@ deploy_e2e_debug: init
 
 deploy_local: init
 	./scripts/deploy.sh
+
+deploy_observability:
+	./scripts/deploy_observability.sh
 
 deploy_e2e: init ginkgo new_kind
 	ENV='e2e' ./scripts/deploy.sh

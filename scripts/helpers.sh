@@ -6,6 +6,12 @@ function trap_func() {
 	jobs -p | xargs kill -SIGSTOP
 	jobs -p | xargs kill -9
 	sudo ss -aK '( dport = :9100 or sport = :9100 )'
+	sudo ss -aK '( dport = :6060 or sport = :6060 )'
+	sudo ss -aK '( dport = :9000 or sport = :9000 )'
+	sudo ss -aK '( dport = :30002 or sport = :30002 )'
+	sudo ss -aK '( dport = :9090 or sport = :9090 )'
+	sudo ss -aK '( dport = :3000 or sport = :3000 )'
+	sudo ss -aK '( dport = :4040 or sport = :4040 )'
 	} &> /dev/null
 }
 

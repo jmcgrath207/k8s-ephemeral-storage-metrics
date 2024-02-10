@@ -1,12 +1,8 @@
 #!/bin/bash
-#
-# Brief description of your script
-# Copyright 2023 john
 
 set -e
 
 source scripts/helpers.sh
-
 
 function main() {
   local image_tag
@@ -23,15 +19,15 @@ function main() {
   fi
 
   common_set_values_arr=(
-  "image.repository=local.io/local/$DEPLOYMENT_NAME",
-  "image.tag=${image_tag}",
-  "image.imagePullPolicy=Never",
-  "deploy_type=Deployment",
-  "log_level=debug"
-  "dev.enabled=true",
-  "dev.image.imagePullPolicy=Never"
-  "metrics.adjusted_polling_rate=true"
-  "pprof=true"
+    "image.repository=local.io/local/$DEPLOYMENT_NAME",
+    "image.tag=${image_tag}",
+    "image.imagePullPolicy=Never",
+    "deploy_type=Deployment",
+    "log_level=debug"
+    "dev.enabled=true",
+    "dev.image.imagePullPolicy=Never"
+    "metrics.adjusted_polling_rate=true"
+    "pprof=true"
   )
 
   docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f DockerfileTestGrow -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest .
@@ -40,18 +36,10 @@ function main() {
   docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f DockerfileTestShrink -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest .
   kind load docker-image -v 9 --name "${DEPLOYMENT_NAME}-cluster" --nodes "${DEPLOYMENT_NAME}-cluster-worker" "ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest"
 
-  if [[ $ENV =~ "e2e"   ]]; then
-
-    e2e_values_arr=("interval=5")
-    common_set_values_arr+=("${e2e_values_arr[@]}")
-  fi
-
   common_set_values=$(echo ${common_set_values_arr[*]} | sed 's/, /,/g' | sed 's/ /,/g')
 
   docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f ${dockerfile} -t local.io/local/$DEPLOYMENT_NAME:$image_tag .
   kind load docker-image -v 9 --name "${DEPLOYMENT_NAME}-cluster" --nodes "${DEPLOYMENT_NAME}-cluster-worker" "local.io/local/${DEPLOYMENT_NAME}:${image_tag}"
-
-
 
   # Install Par Chart
   helm upgrade --install $DEPLOYMENT_NAME ./chart \
@@ -66,41 +54,21 @@ function main() {
       '{ "spec": {"template": { "spec":{"securityContext": null, "containers":[{"name":"metrics", "livenessProbe": null, "readinessProbe": null, "securityContext": null, "command": null, "args": null  }]}}}}'
   fi
 
-
-  # kill dangling port forwards if found.
-  # Exporter Porter
-  sudo ss -aK '( dport = :9100 or sport = :9100 )' | true
-  # Prometheus Port
-  sudo ss -aK '( dport = :9090 or sport = :9090 )' | true
-  # Pprof Port
-  sudo ss -aK '( dport = :6060 or sport = :6060 )' | true
-
   # Start Exporter Port Forward
   (
     sleep 10
     printf "\n\n" && while :; do kubectl port-forward -n $DEPLOYMENT_NAME service/k8s-ephemeral-storage-metrics 9100:9100 || sleep 5; done
   ) &
 
-  # Start Prometheus Port Forward
-  (
-    sleep 10
-    printf "\n\n" && while :; do kubectl port-forward -n $DEPLOYMENT_NAME service/prometheus-operated  9090:9090 || sleep 5; done
-  ) &
-  # Start Pprof Forward
-  (
-    sleep 10
-    printf "\n\n" && while :; do kubectl port-forward -n $DEPLOYMENT_NAME service/pprof 6060:6060 || sleep 5; done
-  ) &
-
   if [[ $ENV == "debug" ]]; then
     # Background log following for manager
     (
       sleep 10
-      printf "\n\n" && while :; do kubectl logs -n $DEPLOYMENT_NAME -l app.kubernetes.io/name=k8s-ephemeral-storage-metrics  -f || sleep 5; done
+      printf "\n\n" && while :; do kubectl logs -n $DEPLOYMENT_NAME -l app.kubernetes.io/name=k8s-ephemeral-storage-metrics -f || sleep 5; done
     ) &
 
     while [ "$(kubectl get pods -n $DEPLOYMENT_NAME -l app.kubernetes.io/name=k8s-ephemeral-storage-metrics -o=jsonpath='{.items[*].status.phase}')" != "Running" ]; do
-        echo  "waiting for k8s-ephemeral-storage-metrics  pod to start. Sleep 10" && sleep 10
+      echo "waiting for k8s-ephemeral-storage-metrics  pod to start. Sleep 10" && sleep 10
     done
     kubectl port-forward -n $DEPLOYMENT_NAME services/debug 30002:30002
 
