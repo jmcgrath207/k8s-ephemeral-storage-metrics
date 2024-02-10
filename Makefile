@@ -50,6 +50,9 @@ deploy_e2e_debug: init
 deploy_local: init
 	./scripts/deploy.sh
 
+deploy_observability:
+	./scripts/deploy_observability.sh
+
 deploy_e2e: init ginkgo crane minikube_new
 	ENV='e2e' ./scripts/deploy.sh
 

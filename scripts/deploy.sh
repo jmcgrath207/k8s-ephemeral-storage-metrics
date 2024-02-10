@@ -1,7 +1,4 @@
 #!/bin/bash
-#
-# Brief description of your script
-# Copyright 2023 john
 
 set -e
 

@@ -15,10 +15,15 @@ function trap_func() {
 	jobs -p | xargs kill -9
   # Kill dangling port forwards if found.
   kill_main_exporter_port
+	# Debug Port
+	sudo ss -aK '( dport = :30002 or sport = :30002 )'
   # Prometheus Port
   sudo ss -aK '( dport = :9090 or sport = :9090 )' || true
   # Pprof Port
   sudo ss -aK '( dport = :6060 or sport = :6060 )' || true
+	sudo ss -aK '( dport = :9000 or sport = :9000 )' || true
+	sudo ss -aK '( dport = :3000 or sport = :3000 )' || true
+	sudo ss -aK '( dport = :4040 or sport = :4040 )' || true
 	} &> /dev/null
 }
 
