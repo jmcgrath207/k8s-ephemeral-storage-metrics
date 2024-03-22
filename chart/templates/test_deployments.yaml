@@ -15,8 +15,8 @@ spec:
         name: shrink-test
     spec:
       containers:
-        - image: ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest
-          imagePullPolicy: "{{ .Values.dev.image.imagePullPolicy }}"
+        - image: "{{ .Values.dev.shrink.image }}"
+          imagePullPolicy: "{{ .Values.dev.shrink.imagePullPolicy }}"
           name: shrink-test
           resources:
             requests:
@@ -54,8 +54,8 @@ spec:
         name: grow-test
     spec:
       containers:
-        - image: ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest
-          imagePullPolicy: "{{ .Values.dev.image.imagePullPolicy }}"
+        - image: "{{ .Values.dev.grow.image }}"
+          imagePullPolicy: "{{ .Values.dev.grow.imagePullPolicy }}"
           name: grow-test
           resources:
             requests:

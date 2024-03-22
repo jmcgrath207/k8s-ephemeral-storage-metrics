@@ -36,10 +36,14 @@ prometheus:
 pprof: false
 
 
-# -- For local development of kind and/or deploy grow and shrink test pods
+# -- For local development or testing that will deploy grow and shrink pods and debug service
 dev:
   enabled: false
-  image:
+  shrink:
+    image: ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest
+    imagePullPolicy: IfNotPresent
+  grow:
+    image: ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest
     imagePullPolicy: IfNotPresent
 
 podAnnotations: {}

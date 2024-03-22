@@ -18,10 +18,12 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: '1.21'
-      - name: Create k8s Kind Cluster
-        uses: helm/kind-action@v1.7.0
-        with:
-          install_only: true
+      - name: Install Minikube
+        run: |
+          wget https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+          sudo cp minikube-linux-amd64 /usr/local/bin/minikube
+          sudo chmod +x /usr/local/bin/minikube      
+
       - uses: azure/setup-helm@v3
       - name: Run e2e
         run: |
