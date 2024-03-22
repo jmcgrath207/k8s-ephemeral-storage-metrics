@@ -109,7 +109,7 @@ func checkPrometheus(checkSlice []string) {
 
 func WatchContainerPercentage() {
 	status := 0
-	re := regexp.MustCompile(`ephemeral_storage_container_limit_percentage{container="grow-test",node_name="ephemeral-metrics-cluster-worker".+,pod_namespace="ephemeral-metrics"}\s+(.+)`)
+	re := regexp.MustCompile(`ephemeral_storage_container_limit_percentage{container="grow-test",node_name="minikube".+,pod_namespace="ephemeral-metrics"}\s+(.+)`)
 	output := requestPrometheusString()
 	match := re.FindAllStringSubmatch(output, -1)
 	floatValue, _ := strconv.ParseFloat(match[0][1], 64)
@@ -132,7 +132,7 @@ func WatchDeadPod() {
 
 func WatchNodePercentage() {
 	status := 0
-	re := regexp.MustCompile(`ephemeral_storage_node_percentage\{node_name="ephemeral-metrics-cluster-control-plane"}\s+(.+)`)
+	re := regexp.MustCompile(`ephemeral_storage_node_percentage\{node_name="minikube"}\s+(.+)`)
 	output := requestPrometheusString()
 	match := re.FindAllStringSubmatch(output, -1)
 	floatValue, _ := strconv.ParseFloat(match[0][1], 64)
@@ -145,7 +145,7 @@ func WatchNodePercentage() {
 func WatchPollingRate(pollRateUpper float64, pollingRateLower float64, timeout time.Duration) {
 	status := 0
 	startTime := time.Now()
-	re := regexp.MustCompile(`ephemeral_storage_adjusted_polling_rate\{node_name="ephemeral-metrics-cluster-control-plane"}\s+(.+)`)
+	re := regexp.MustCompile(`ephemeral_storage_adjusted_polling_rate\{node_name="minikube"}\s+(.+)`)
 	for {
 		elapsed := time.Since(startTime)
 		if elapsed >= timeout {
@@ -211,14 +211,14 @@ func WatchEphemeralPodSize(podname string, sizeChange float64, timeout time.Dura
 var _ = ginkgo.Describe("Test Metrics\n", func() {
 
 	ginkgo.Context("Observe labels\n", func() {
-		ginkgo.Specify("\nReturn A Record IP addresses and Proxy IP address", func() {
+		ginkgo.Specify("\nMake sure all metrics are in the exporter", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "ephemeral_storage_pod_usage",
 				"ephemeral_storage_node_available",
 				"ephemeral_storage_node_capacity",
 				"ephemeral_storage_node_percentage",
 				"pod_name=\"k8s-ephemeral-storage", "ephemeral_storage_adjusted_polling_rate",
-				"node_name=\"ephemeral-metrics-cluster-worker", "node_name=\"ephemeral-metrics-cluster-control-plane",
+				"node_name=\"minikube",
 				"ephemeral_storage_container_limit_percentage")
 			checkPrometheus(checkSlice)
 		})

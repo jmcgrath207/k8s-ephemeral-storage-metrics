@@ -12,7 +12,10 @@ $(LOCALBIN):
 
 
 ginkgo:
-	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@latest
+	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@v2.13.1
+
+crane:
+	test -s $(LOCALBIN)/crane || GOBIN=$(LOCALBIN) go install github.com/google/go-containerregistry/cmd/crane@latest
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -27,8 +30,14 @@ helm-docs:
 	$(LOCALBIN)/helm-docs  --template-files "${GITROOT}/chart/README.md.gotmpl"
 	cat "${GITROOT}/Header.md" "${GITROOT}/chart/README.md" > "${GITROOT}/README.md"
 
-new_kind:
-	./scripts/create_kind.sh
+minikube_new:
+	./scripts/create-minikube.sh
+
+minikube_scale_up:
+	minikube node add
+
+minikube_scale_down:
+	minikube node delete m02
 
 init: fmt vet
 
@@ -41,7 +50,10 @@ deploy_e2e_debug: init
 deploy_local: init
 	./scripts/deploy.sh
 
-deploy_e2e: init ginkgo new_kind
+deploy_e2e: init ginkgo crane minikube_new
+	ENV='e2e' ./scripts/deploy.sh
+
+deploy_e2e_dirty: init
 	ENV='e2e' ./scripts/deploy.sh
 
 release-docker:
