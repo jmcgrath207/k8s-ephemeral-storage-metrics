@@ -129,9 +129,28 @@ func WatchContainerPercentage() {
 
 }
 
-// TODO: need to add
 func WatchContainerVolumePercentage() {
-	//ephemeral_storage_container_volume_limit_percentage
+	status := 0
+	timeout := time.Second * 180
+	startTime := time.Now()
+	for {
+		elapsed := time.Since(startTime)
+		if elapsed >= timeout {
+			break
+		}
+		re := regexp.MustCompile(`ephemeral_storage_container_volume_limit_percentage{container="shrink-test",mount_path="\/cache".+volume_name="cache-volume-1"}\s+(.+)`)
+		output := requestPrometheusString()
+		match := re.FindAllStringSubmatch(output, -1)
+		if match == nil {
+			continue
+		}
+		floatValue, _ := strconv.ParseFloat(match[0][1], 64)
+		if floatValue < 100.0 {
+			status = 1
+			break
+		}
+	}
+	gomega.Expect(status).Should(gomega.Equal(1))
 
 }
 
@@ -182,36 +201,38 @@ func getPodSize(podName string) float64 {
 func WatchEphemeralPodSize(podName string, desiredSizeChange float64, timeout time.Duration) {
 	// Watch Prometheus Metrics until the ephemeral storage shrinks or grows to a certain desiredSizeChange.
 	var currentPodSize float64
+	var targetSizeChange float64
+
 	startTime := time.Now()
 	status := 0
 	initSize := getPodSize(podName)
 	if podName == "grow-test" {
-		desiredSizeChange = initSize + desiredSizeChange
+		targetSizeChange = initSize + desiredSizeChange
 	} else if podName == "shrink-test" {
-		desiredSizeChange = initSize - desiredSizeChange
+		targetSizeChange = initSize - desiredSizeChange
 	}
 
 	for {
 		elapsed := time.Since(startTime)
 		if elapsed >= timeout {
-			ginkgo.GinkgoWriter.Printf("Watch for metrics has timed out for pod %s", podName)
+			ginkgo.GinkgoWriter.Printf("\nWatch for metrics has timed out for pod %s", podName)
 			break
 		}
 		currentPodSize = getPodSize(podName)
 
-		if podName == "grow-test" && currentPodSize >= desiredSizeChange {
+		if podName == "grow-test" && currentPodSize >= targetSizeChange {
 			status = 1
 
-		} else if podName == "shrink-test" && currentPodSize <= desiredSizeChange {
+		} else if podName == "shrink-test" && currentPodSize <= targetSizeChange {
 			status = 1
 		}
 
 		if status == 1 {
-			ginkgo.GinkgoWriter.Printf("\nSuccess: \n\tPod name: %s \n\tTarget size: %f \n\tCurrent size: %f", podName, desiredSizeChange, currentPodSize)
+			ginkgo.GinkgoWriter.Printf("\nSuccess: \n\tPod name: %s \n\tTarget size: %f \n\tCurrent size: %f", podName, targetSizeChange, currentPodSize)
 			break
 		}
 
-		ginkgo.GinkgoWriter.Printf("\nPending: \n\tPod name: %s \n\tTarget size: %f \n\tCurrent size: %f", podName, desiredSizeChange, currentPodSize)
+		ginkgo.GinkgoWriter.Printf("\nPending: \n\tPod name: %s \n\tTarget size: %f \n\tCurrent size: %f", podName, targetSizeChange, currentPodSize)
 		time.Sleep(time.Second * 5)
 
 	}
@@ -252,27 +273,48 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 			checkPrometheus(checkSlice, false)
 		})
 	})
-	ginkgo.Context("Observe change in storage metrics\n", func() {
-		ginkgo.Specify("\nWatch Pod grow to 100000 Bytes", func() {
-			WatchEphemeralPodSize("grow-test", 100000, time.Second*90)
-		})
-		ginkgo.Specify("\nWatch Pod shrink to 100000 Bytes", func() {
-			WatchEphemeralPodSize("shrink-test", 100000, time.Second*90)
-		})
-	})
 	ginkgo.Context("Test Polling speed\n", func() {
 		ginkgo.Specify("\nMake sure Adjusted Poll rate is between 5000 - 4000 ms", func() {
 			WatchPollingRate(5000.0, 4000.0, time.Second*90)
 		})
 	})
-	ginkgo.Context("Test ephemeral_storage_node_percentage\n", func() {
-		ginkgo.Specify("\nMake sure percentage is not over 100", func() {
-			WatchNodePercentage()
+	ginkgo.Context("Observe change in ephemeral_storage_pod_usage metric\n", func() {
+		ginkgo.Specify("\nWatch Pod grow to 100000 Bytes", func() {
+			WatchEphemeralPodSize("grow-test", 100000, time.Second*90)
+		})
+		ginkgo.Specify("\nWatch Pod shrink to 100000 Bytes", func() {
+			// Shrinking of ephemeral_storage reflects slower from Node API up to 5 minutes.
+			// Wait until it's reporting correctly, and start testing with the minimum of 10mb of data
+			// since the shrink container adds 12mb then decrements 12k a second.
+			// Ex. /api/v1/nodes/minikube/proxy/stats/summary
+			for {
+				currentPodSize := getPodSize("shrink-test")
+				if currentPodSize >= 10000000.0 {
+					break
+				}
+				time.Sleep(time.Second * 5)
+			}
+			WatchEphemeralPodSize("shrink-test", 100000, time.Second*90)
 		})
 	})
-	ginkgo.Context("Test ephemeral_storage_node_percentage\n", func() {
-		ginkgo.Specify("\nMake sure percentage is not over 100", func() {
+	// TODO: needs grow and shrink test
+	ginkgo.Context("Observe change in ephemeral_storage_container_volume_limit_percentage metric\n", func() {
+		ginkgo.GinkgoWriter.Printf("Noop Pass")
+
+	})
+	// TODO: needs grow and shrink test
+	ginkgo.Context("Observe change in ephemeral_storage_container_limit_percentage metric\n", func() {
+		ginkgo.GinkgoWriter.Printf("Noop Pass")
+	})
+	ginkgo.Context("\nMake sure percentage is not over 100", func() {
+		ginkgo.Specify("\nTest ephemeral_storage_node_percentage", func() {
+			WatchNodePercentage()
+		})
+		ginkgo.Specify("\nTest ephemeral_storage_container_limit_percentage", func() {
 			WatchContainerPercentage()
+		})
+		ginkgo.Specify("\nTest ephemeral_storage_container_volume_limit_percentage", func() {
+			WatchContainerVolumePercentage()
 		})
 	})
 	ginkgo.Context("Test Scaling\n", func() {

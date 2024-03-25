@@ -2,7 +2,9 @@
 
 function kill_main_exporter_port {
   # Main Exporter Port
+  {
   sudo ss -aK '( dport = :9100 or sport = :9100 )' || true
+	} &> /dev/null
 }
 
 function trap_func() {
