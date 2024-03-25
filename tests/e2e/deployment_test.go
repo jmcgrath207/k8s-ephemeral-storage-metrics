@@ -6,6 +6,7 @@ import (
 	"github.com/onsi/gomega"
 	"io"
 	"net/http"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -58,7 +59,7 @@ func CheckValues(ifFound map[string]bool) int {
 	return status
 }
 
-func checkPrometheus(checkSlice []string) {
+func checkPrometheus(checkSlice []string, inverse bool) {
 	var status int
 	timeout := time.Second * 180
 	startTime := time.Now()
@@ -84,10 +85,14 @@ func checkPrometheus(checkSlice []string) {
 			if ifFound[a] {
 				continue
 			}
-			if strings.Contains(output, a) {
+			if inverse && !strings.Contains(output, a) {
 				ifFound[a] = true
-				status = CheckValues(ifFound)
+
+			} else if !inverse && strings.Contains(output, a) {
+				ifFound[a] = true
 			}
+
+			status = CheckValues(ifFound)
 		}
 
 		if status == 1 {
@@ -97,7 +102,11 @@ func checkPrometheus(checkSlice []string) {
 	}
 	for key, value := range ifFound {
 		if value {
-			ginkgo.GinkgoWriter.Printf("\nFound value: [ %v ] in prometheus exporter\n", key)
+			if inverse {
+				ginkgo.GinkgoWriter.Printf("\nDid not find value: [ %v ] in prometheus exporter\n", key)
+			} else {
+				ginkgo.GinkgoWriter.Printf("\nFound value: [ %v ] in prometheus exporter\n", key)
+			}
 			continue
 		}
 		ginkgo.GinkgoWriter.Printf("\nDid not find value: [ %v ] in prometheus exporter\n", key)
@@ -120,14 +129,10 @@ func WatchContainerPercentage() {
 
 }
 
+// TODO: need to add
 func WatchContainerVolumePercentage() {
-	// TODO: add test for this once evictions for dead pods is handled.
 	//ephemeral_storage_container_volume_limit_percentage
 
-}
-
-func WatchDeadPod() {
-	// TODO: Deploy a pod and then remove it. Make sure it's completely evicted from prom metrics.
 }
 
 func WatchNodePercentage() {
@@ -166,45 +171,69 @@ func WatchPollingRate(pollRateUpper float64, pollingRateLower float64, timeout t
 
 }
 
-func WatchEphemeralPodSize(podname string, sizeChange float64, timeout time.Duration) {
-	// Watch Prometheus Metrics until the ephemeral storage shrinks or grows to a certain sizeChange.
+func getPodSize(podName string) float64 {
+	output := requestPrometheusString()
+	re := regexp.MustCompile(fmt.Sprintf(`ephemeral_storage_pod_usage.+pod_name="%s.+\}\s(.+)`, podName))
+	match := re.FindAllStringSubmatch(output, 2)
+	currentPodSize, _ := strconv.ParseFloat(match[0][1], 64)
+	return currentPodSize
+}
+
+func WatchEphemeralPodSize(podName string, desiredSizeChange float64, timeout time.Duration) {
+	// Watch Prometheus Metrics until the ephemeral storage shrinks or grows to a certain desiredSizeChange.
+	var currentPodSize float64
 	startTime := time.Now()
 	status := 0
-	var initSize float64
+	initSize := getPodSize(podName)
+	if podName == "grow-test" {
+		desiredSizeChange = initSize + desiredSizeChange
+	} else if podName == "shrink-test" {
+		desiredSizeChange = initSize - desiredSizeChange
+	}
+
 	for {
 		elapsed := time.Since(startTime)
 		if elapsed >= timeout {
-			ginkgo.GinkgoWriter.Printf("Watch for metrics has timed out for pod %s", podname)
+			ginkgo.GinkgoWriter.Printf("Watch for metrics has timed out for pod %s", podName)
 			break
 		}
-		output := requestPrometheusString()
-		re := regexp.MustCompile(fmt.Sprintf(`ephemeral_storage_pod_usage.+pod_name="%s.+\}\s(.+)`, podname))
-		match := re.FindAllStringSubmatch(output, 2)
-		floatValue, _ := strconv.ParseFloat(match[0][1], 64)
-		if initSize == 0.0 {
-			initSize = floatValue
+		currentPodSize = getPodSize(podName)
 
+		if podName == "grow-test" && currentPodSize >= desiredSizeChange {
+			status = 1
+
+		} else if podName == "shrink-test" && currentPodSize <= desiredSizeChange {
+			status = 1
 		}
-		if strings.Contains(podname, "grow") {
-			if floatValue-initSize >= sizeChange {
-				ginkgo.GinkgoWriter.Printf("\nSuccess: \n\tPod Name: %s \n\tTargetSize: %f \n\tPodSize: %f", podname, initSize+sizeChange, floatValue)
-				status = 1
-				break
-			}
-			ginkgo.GinkgoWriter.Printf("\nPending: \n\tPod Name: %s \n\tTargetSize: %f \n\tPodSize: %f", podname, initSize+sizeChange, floatValue)
-			time.Sleep(time.Second * 5)
-		} else if strings.Contains(podname, "shrink") {
-			if initSize-floatValue >= sizeChange {
-				ginkgo.GinkgoWriter.Printf("\nSuccess: \n\tPod Name: %s \n\tTargetSize: %f \n\tPodSize: %f", podname, initSize-sizeChange, floatValue)
-				status = 1
-				break
-			}
-			ginkgo.GinkgoWriter.Printf("\nPending: \n\tPod Name: %s \n\tTargetSize: %f \n\tPodSize: %f", podname, initSize-sizeChange, floatValue)
-			time.Sleep(time.Second * 5)
+
+		if status == 1 {
+			ginkgo.GinkgoWriter.Printf("\nSuccess: \n\tPod name: %s \n\tTarget size: %f \n\tCurrent size: %f", podName, desiredSizeChange, currentPodSize)
+			break
 		}
+
+		ginkgo.GinkgoWriter.Printf("\nPending: \n\tPod name: %s \n\tTarget size: %f \n\tCurrent size: %f", podName, desiredSizeChange, currentPodSize)
+		time.Sleep(time.Second * 5)
 
 	}
 	gomega.Expect(status).Should(gomega.Equal(1))
+
+}
+
+func scaleUp() {
+	cmd := exec.Command("make", "minikube_scale_up")
+	cmd.Dir = "../.."
+
+	_, err := cmd.Output()
+	gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+}
+
+func scaleDown() {
+	cmd := exec.Command("make", "minikube_scale_down")
+	cmd.Dir = "../.."
+
+	_, err := cmd.Output()
+	gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
 
 }
 
@@ -220,7 +249,7 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 				"pod_name=\"k8s-ephemeral-storage", "ephemeral_storage_adjusted_polling_rate",
 				"node_name=\"minikube",
 				"ephemeral_storage_container_limit_percentage")
-			checkPrometheus(checkSlice)
+			checkPrometheus(checkSlice, false)
 		})
 	})
 	ginkgo.Context("Observe change in storage metrics\n", func() {
@@ -244,6 +273,20 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 	ginkgo.Context("Test ephemeral_storage_node_percentage\n", func() {
 		ginkgo.Specify("\nMake sure percentage is not over 100", func() {
 			WatchContainerPercentage()
+		})
+	})
+	ginkgo.Context("Test Scaling\n", func() {
+		checkSlice := []string{
+			"node_name=\"minikube-m02",
+			"ephemeral_storage_container_limit_percentage{container=\"kube-proxy\",node_name=\"minikube-m02\"",
+		}
+		ginkgo.Specify("\nScale up test to make sure pods and nodes are found", func() {
+			scaleUp()
+			checkPrometheus(checkSlice, false)
+		})
+		ginkgo.Specify("\nScale Down test to make sure pods and nodes are evicted", func() {
+			scaleDown()
+			checkPrometheus(checkSlice, true)
 		})
 	})
 })
