@@ -42,7 +42,7 @@ var (
 	ephemeralStorageNodePercentage                  bool
 	ephemeralStorageContainerLimitsPercentage       bool
 	ephemeralStorageContainerVolumeLimitsPercentage bool
-	adjustedTimeGaugeVec                            *prometheus.GaugeVec
+	adjustedPollingRateGaugeVec                     *prometheus.GaugeVec
 	deployType                                      string
 	nodeWaitGroup                                   sync.WaitGroup
 	podDataWaitGroup                                sync.WaitGroup
@@ -267,6 +267,7 @@ func podWatch() {
 	ticker := time.NewTicker(time.Duration(sampleInterval) * time.Second)
 	defer ticker.Stop()
 
+	// TODO: make this more event driven instead of polling
 	for {
 		select {
 		case <-ticker.C:
@@ -288,8 +289,18 @@ func evictPodFromMetrics(p v1.Pod) {
 	}
 }
 
+func evictNode(node string) {
+
+	nodeAvailableGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
+	nodeCapacityGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
+	nodePercentageGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
+	if adjustedPollingRate {
+		adjustedPollingRateGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
+	}
+	log.Info().Msgf("Node %s does not exist. Removed from monitoring", node)
+}
+
 func getNodes() {
-	oldNodeSet := mapset.NewSet[string]()
 	nodeSet := mapset.NewSet[string]()
 	nodeWaitGroup.Add(1)
 	if deployType != "Deployment" {
@@ -306,24 +317,13 @@ func getNodes() {
 	nodeSlice = nodeSet.ToSlice()
 	nodeWaitGroup.Done()
 
-	// Poll for new nodes and remove dead ones
+	// Poll for new nodes
+	// TODO: make this more event driven instead of polling
 	for {
-		oldNodeSet = nodeSet.Clone()
-		nodeSet.Clear()
 		nodes, _ := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 		for _, node := range nodes.Items {
 			nodeSet.Add(node.Name)
 		}
-		deadNodesSet := nodeSet.Difference(oldNodeSet)
-
-		// Evict Metrics where the node doesn't exist anymore.
-		for _, deadNode := range deadNodesSet.ToSlice() {
-			nodeAvailableGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": deadNode})
-			nodeCapacityGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": deadNode})
-			nodePercentageGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": deadNode})
-			log.Info().Msgf("Node %s does not exist. Removing from monitoring", deadNode)
-		}
-
 		nodeSlice = nodeSet.ToSlice()
 		time.Sleep(1 * time.Minute)
 	}
@@ -439,7 +439,7 @@ func setMetrics(node string) {
 
 	content, err := queryNode(node)
 	if err != nil {
-		log.Warn().Msg(fmt.Sprintf("Could not query node: %s. Skipping..", node))
+		evictNode(node)
 		return
 	}
 
@@ -467,7 +467,7 @@ func setMetrics(node string) {
 		log.Error().Msgf("Node %s: Polling Rate could not keep up. Adjust your Interval to a higher number than %d seconds", nodeName, sampleInterval)
 	}
 	if adjustedPollingRate {
-		adjustedTimeGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(float64(adjustTime))
+		adjustedPollingRateGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(float64(adjustTime))
 	}
 
 }
@@ -567,7 +567,7 @@ func createMetrics() {
 	prometheus.MustRegister(nodePercentageGaugeVec)
 
 	if adjustedPollingRate {
-		adjustedTimeGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		adjustedPollingRateGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "ephemeral_storage_adjusted_polling_rate",
 			Help: "AdjustTime polling rate time after a Node API queries in Milliseconds",
 		},
@@ -576,7 +576,7 @@ func createMetrics() {
 				"node_name",
 			})
 
-		prometheus.MustRegister(adjustedTimeGaugeVec)
+		prometheus.MustRegister(adjustedPollingRateGaugeVec)
 	}
 
 }

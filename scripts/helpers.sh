@@ -1,3 +1,9 @@
+#!/bin/bash
+
+function kill_main_exporter_port {
+  # Main Exporter Port
+  sudo ss -aK '( dport = :9100 or sport = :9100 )' || true
+}
 
 function trap_func() {
   set +e
@@ -5,7 +11,12 @@ function trap_func() {
 	helm delete $DEPLOYMENT_NAME -n $DEPLOYMENT_NAME
 	jobs -p | xargs kill -SIGSTOP
 	jobs -p | xargs kill -9
-	sudo ss -aK '( dport = :9100 or sport = :9100 )'
+  # Kill dangling port forwards if found.
+  kill_main_exporter_port
+  # Prometheus Port
+  sudo ss -aK '( dport = :9090 or sport = :9090 )' || true
+  # Pprof Port
+  sudo ss -aK '( dport = :6060 or sport = :6060 )' || true
 	} &> /dev/null
 }
 
