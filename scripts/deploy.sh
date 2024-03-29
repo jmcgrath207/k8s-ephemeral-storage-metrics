@@ -21,6 +21,7 @@ function main() {
   local external_registry
   local internal_registry
   local status_code
+  local time_tag
 
   trap 'trap_func' EXIT ERR
 
@@ -55,7 +56,9 @@ function main() {
 
   ### Build and Load Images ###
 
-  grow_repo_image="k8s-ephemeral-storage-grow-test:latest"
+  time_tag=$(date +%Y%m%d%H%M%S)
+
+  grow_repo_image="k8s-ephemeral-storage-grow-test:${time_tag}"
 
   docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f ../DockerfileTestGrow \
     -t "${external_registry}/${grow_repo_image}" -t "${internal_registry}/${grow_repo_image}" ../.
@@ -64,7 +67,7 @@ function main() {
   "${LOCALBIN}/crane" push --insecure /tmp/image.tar "${external_registry}/${grow_repo_image}"
   rm /tmp/image.tar
 
-  shrink_repo_image="k8s-ephemeral-storage-shrink-test:latest"
+  shrink_repo_image="k8s-ephemeral-storage-shrink-test:${time_tag}"
 
   docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f ../DockerfileTestShrink \
     -t "${external_registry}/${shrink_repo_image}" -t "${internal_registry}/${shrink_repo_image}" ../.
@@ -74,10 +77,10 @@ function main() {
   rm /tmp/image.tar
 
   if [[ $ENV == "debug" ]]; then
-    image_tag="debug-latest"
+    image_tag="debug-${time_tag}"
     dockerfile="DockerfileDebug"
   else
-    image_tag="latest"
+    image_tag="${time_tag}"
     dockerfile="Dockerfile"
   fi
 

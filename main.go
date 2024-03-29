@@ -231,15 +231,11 @@ func podWatch() {
 	podDataWaitGroup.Wait()
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	sharedInformerFactory := informers.NewSharedInformerFactory(clientset, 2*time.Second)
+	sharedInformerFactory := informers.NewSharedInformerFactory(clientset, time.Duration(sampleInterval)*time.Second)
 	podInformer := sharedInformerFactory.Core().V1().Pods().Informer()
 
 	// Define event handlers for Pod events
 	eventHandler := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			p := obj.(*v1.Pod)
-			getPodData(*p)
-		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			p := newObj.(*v1.Pod)
 			getPodData(*p)
@@ -263,15 +259,9 @@ func podWatch() {
 	// Start the informer to begin watching for Pod events
 	go sharedInformerFactory.Start(stopCh)
 
-	// Use a ticker to trigger the watcher every 15 seconds
-	ticker := time.NewTicker(time.Duration(sampleInterval) * time.Second)
-	defer ticker.Stop()
-
-	// TODO: make this more event driven instead of polling
 	for {
+		time.Sleep(time.Duration(sampleInterval) * time.Second)
 		select {
-		case <-ticker.C:
-			log.Debug().Msg("Watching podWatch for Pod events...")
 		case <-stopCh:
 			log.Error().Msg("Watcher podWatch stopped.")
 			os.Exit(1)
