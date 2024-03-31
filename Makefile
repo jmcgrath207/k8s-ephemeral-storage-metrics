@@ -76,10 +76,10 @@ release-helm:
 	cd ..
 
 release: release-docker release-helm helm-docs
-	# ex. make VERSION=1.6.1 release
+	# ex. make VERSION=1.6.2 release
 
 release-github:
-	# ex. make VERSION=1.6.1 release-github
+	# ex. make VERSION=1.6.2 release-github
 	gh release create ${VERSION} --generate-notes
 	gh release upload ${VERSION} "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz"
 	rm chart/k8s-ephemeral-storage-metrics-*.tgz
