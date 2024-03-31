@@ -52,10 +52,10 @@ var (
 	nodePercentageGaugeVec                          *prometheus.GaugeVec
 	containerPercentageLimitsVec                    *prometheus.GaugeVec
 	containerPercentageVolumeLimitsVec              *prometheus.GaugeVec
-	nodeSlice                                       []string
 	maxNodeConcurrency                              int
 	podResourceLookup                               map[string]pod
 	podResourceLookupMutex                          sync.RWMutex
+	nodeSet                                         mapset.Set[string]
 )
 
 func getEnv(key, fallback string) string {
@@ -279,6 +279,46 @@ func evictPodFromMetrics(p v1.Pod) {
 	}
 }
 
+func NodeWatch() {
+	nodeWaitGroup.Wait()
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	sharedInformerFactory := informers.NewSharedInformerFactory(clientset, time.Duration(sampleInterval)*time.Second)
+	podInformer := sharedInformerFactory.Core().V1().Nodes().Informer()
+
+	// Define event handlers for Pod events
+	eventHandler := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			p := obj.(*v1.Node)
+			nodeSet.Add(p.Name)
+		},
+		DeleteFunc: func(obj interface{}) {
+			p := obj.(*v1.Node)
+			nodeSet.Remove(p.Name)
+			evictNode(p.Name)
+		},
+	}
+
+	// Register the event handlers with the informer
+	_, err := podInformer.AddEventHandler(eventHandler)
+	if err != nil {
+		log.Err(err)
+		os.Exit(1)
+	}
+
+	// Start the informer to begin watching for Node events
+	go sharedInformerFactory.Start(stopCh)
+
+	for {
+		time.Sleep(time.Duration(sampleInterval) * time.Second)
+		select {
+		case <-stopCh:
+			log.Error().Msg("Watcher NodeWatch stopped.")
+			os.Exit(1)
+		}
+	}
+}
+
 func evictNode(node string) {
 
 	nodeAvailableGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
@@ -291,7 +331,7 @@ func evictNode(node string) {
 }
 
 func getNodes() {
-	nodeSet := mapset.NewSet[string]()
+	nodeSet = mapset.NewSet[string]()
 	nodeWaitGroup.Add(1)
 	if deployType != "Deployment" {
 		nodeSet.Add(getEnv("CURRENT_NODE_NAME", ""))
@@ -304,19 +344,7 @@ func getNodes() {
 	for _, node := range startNodes.Items {
 		nodeSet.Add(node.Name)
 	}
-	nodeSlice = nodeSet.ToSlice()
 	nodeWaitGroup.Done()
-
-	// Poll for new nodes
-	// TODO: make this more event driven instead of polling
-	for {
-		nodes, _ := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-		for _, node := range nodes.Items {
-			nodeSet.Add(node.Name)
-		}
-		nodeSlice = nodeSet.ToSlice()
-		time.Sleep(1 * time.Minute)
-	}
 
 }
 
@@ -429,7 +457,7 @@ func setMetrics(node string) {
 
 	content, err := queryNode(node)
 	if err != nil {
-		evictNode(node)
+		log.Warn().Msgf("Could not query node %s for ephemeral storage", node)
 		return
 	}
 
@@ -585,6 +613,7 @@ func getMetrics() {
 	defer p.Release()
 
 	for {
+		nodeSlice := nodeSet.ToSlice()
 
 		for _, node := range nodeSlice {
 			_ = p.Invoke(node)
@@ -657,6 +686,7 @@ func main() {
 		go podWatch()
 	}
 	go getNodes()
+	go NodeWatch()
 	go getMetrics()
 	if deployType != "Deployment" && deployType != "DaemonSet" {
 		log.Error().Msg(fmt.Sprintf("deployType must be 'Deployment' or 'DaemonSet', got %s", deployType))
