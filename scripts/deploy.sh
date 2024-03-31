@@ -1,7 +1,4 @@
 #!/bin/bash
-#
-# Brief description of your script
-# Copyright 2023 john
 
 set -e
 
@@ -133,41 +130,23 @@ function main() {
     printf "\n\n" && while :; do kubectl port-forward -n $DEPLOYMENT_NAME service/k8s-ephemeral-storage-metrics 9100:9100 || kill_main_exporter_port && sleep 5; done
   ) &
 
-  # Wait until main pod comes up
-  while [ "$(kubectl get pods -n $DEPLOYMENT_NAME -l app.kubernetes.io/name=k8s-ephemeral-storage-metrics -o=jsonpath='{.items[*].status.phase}')" != "Running" ]; do
-    echo "Waiting for k8s-ephemeral-storage-metrics pod to start. Sleep 10" && sleep 10
-  done
-
-  # Wait until grow-test comes up
-  while [ "$(kubectl get pods -n $DEPLOYMENT_NAME -l name=grow-test -o=jsonpath='{.items[*].status.phase}')" != "Running" ]; do
-    echo "Waiting for grow-test pod to start. Sleep 10" && sleep 10
-  done
-
-  # Wait until shrink-test comes up
-  while [ "$(kubectl get pods -n $DEPLOYMENT_NAME -l name=shrink-test -o=jsonpath='{.items[*].status.phase}')" != "Running" ]; do
-    echo "Waiting for shrink-test pod to start. Sleep 10" && sleep 10
-  done
+  wait_pods
 
   if [[ $ENV == "debug" ]]; then
-    # Background log following for manager
-    (
-      sleep 10
-      printf "\n\n" && while :; do kubectl logs -n $DEPLOYMENT_NAME -l app.kubernetes.io/name=k8s-ephemeral-storage-metrics -f || sleep 5; done
-    ) &
-
+    follow_main_logs
     kubectl port-forward -n $DEPLOYMENT_NAME services/debug 30002:30002
 
   elif [[ $ENV == "e2e" ]]; then
     ${LOCALBIN}/ginkgo -v -r ../tests/e2e/...
   elif [[ $ENV == "e2e-debug" ]]; then
     sleep infinity
+  elif [[ $ENV == "observability" ]]; then
+    deploy_observability
+    follow_main_logs
+    sleep infinity
   else
-    # Assume make local deploy
-    # Background log following for manager
-    (
-      sleep 10
-      printf "\n\n" && while :; do kubectl logs -n $DEPLOYMENT_NAME -l app.kubernetes.io/name=k8s-ephemeral-storage-metrics -f || sleep 5; done
-    ) &
+    # Assume ENV=local deploy
+    follow_main_logs
     sleep infinity
   fi
 }

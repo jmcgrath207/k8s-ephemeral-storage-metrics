@@ -44,6 +44,8 @@ spec:
             - name: debug
               containerPort: 30002
               protocol: TCP
+              {{ end }}
+            {{ if .Values.pprof }}
             - name: pprof
               containerPort: 6060
               protocol: TCP

@@ -1,0 +1,20 @@
+apiVersion: v2
+name: observability
+version: 1.0.0
+appVersion: 1.0.0
+kubeVersion: ">=1.21.0-0"
+description: chart for observability testing
+
+dependencies:
+  - name: grafana-operator
+    version: v5.6.2
+    repository: oci://ghcr.io/grafana/helm-charts
+    condition: grafana-operator.enabled
+  - name: pyroscope
+    version: 1.4.0
+    repository: https://grafana.github.io/helm-charts
+    condition: pyroscope.enabled
+  - name: kube-prometheus-stack
+    version: 46.8.0
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: kube-prometheus-stack.enabled
