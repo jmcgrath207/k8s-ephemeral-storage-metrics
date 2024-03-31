@@ -51,7 +51,7 @@ deploy_local: init
 	./scripts/deploy.sh
 
 deploy_observability:
-	./scripts/deploy_observability.sh
+	ENV='observability' ./scripts/deploy.sh
 
 deploy_e2e: init ginkgo crane minikube_new
 	ENV='e2e' ./scripts/deploy.sh
@@ -59,11 +59,11 @@ deploy_e2e: init ginkgo crane minikube_new
 deploy_e2e_dirty: init
 	ENV='e2e' ./scripts/deploy.sh
 
-deploy_test_chart:
-	helm install test ./tests/chart/test -n test --create-namespace
+deploy_many_pods:
+	helm install many-pods ./tests/charts/many-pods -n many-pods --create-namespace
 
-destroy_test_chart:
-	helm delete -n test test
+destroy_many_pods:
+	helm delete -n many-pods many-pods
 
 release-docker:
 	GITHUB_TOKEN="${GITHUB_TOKEN}" VERSION="${VERSION}" ./scripts/release-docker.sh
