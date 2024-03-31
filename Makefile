@@ -79,9 +79,20 @@ release-helm:
 	cd ..
 
 release: release-docker release-helm helm-docs
+	# Prod release
 	# ex. make VERSION=1.6.2 release
+	# Prerelease Candidate
+	# ex. make VERSION=1.6.3-rc01 release
+
+prerelease-github:
+	# Prerelease Candidate
+	# ex. make VERSION=1.6.3-rc01 prerelease-github
+	gh release create ${VERSION} --generate-notes --prerelease
+	gh release upload ${VERSION} "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz"
+	rm chart/k8s-ephemeral-storage-metrics-*.tgz
 
 release-github:
+	# Prod release
 	# ex. make VERSION=1.6.2 release-github
 	gh release create ${VERSION} --generate-notes
 	gh release upload ${VERSION} "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz"
