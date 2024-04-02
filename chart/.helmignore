@@ -22,3 +22,4 @@
 .vscode/
 README.md.gotmpl
 *.tgz
+test-values.yaml

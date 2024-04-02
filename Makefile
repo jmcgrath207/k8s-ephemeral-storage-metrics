@@ -30,6 +30,9 @@ helm-docs:
 	$(LOCALBIN)/helm-docs  --template-files "${GITROOT}/chart/README.md.gotmpl"
 	cat "${GITROOT}/Header.md" "${GITROOT}/chart/README.md" > "${GITROOT}/README.md"
 
+test-helm-render:
+	helm template ./chart -f ./chart/test-values.yaml 1> /dev/null
+
 minikube_new:
 	./scripts/create-minikube.sh
 
@@ -53,10 +56,13 @@ deploy_local: init
 deploy_observability:
 	ENV='observability' ./scripts/deploy.sh
 
-deploy_e2e: init ginkgo crane minikube_new
+deploy_test: init
+	ENV='test' ./scripts/deploy.sh
+
+deploy_e2e: init test-helm-render ginkgo crane minikube_new
 	ENV='e2e' ./scripts/deploy.sh
 
-deploy_e2e_dirty: init
+deploy_e2e_dirty: init test-helm-render
 	ENV='e2e' ./scripts/deploy.sh
 
 deploy_many_pods:

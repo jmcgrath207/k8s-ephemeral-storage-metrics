@@ -1,0 +1,69 @@
+
+image:
+  repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics
+  tag: 1.6.2
+  imagePullPolicy: IfNotPresent
+
+serviceMonitor:
+  relabelings:
+    - sourceLabels: [pod_name]
+      targetLabel: pod
+    - sourceLabels: [pod_namespace]
+      targetLabel: namespace
+    # drop labels pod_.*
+    - regex: "pod_(.*)"
+      action: labeldrop
+
+
+# -- Set metrics you want to enable
+metrics:
+  # -- Percentage of ephemeral storage used by a container in a pod
+  ephemeral_storage_container_limit_percentage: true
+  # -- Percentage of ephemeral storage used by a container's volume in a pod
+  ephemeral_storage_container_volume_limit_percentage: true
+  # -- Current ephemeral byte usage of pod
+  ephemeral_storage_pod_usage: true
+  # -- Available ephemeral storage for a node
+  ephemeral_storage_node_available: true
+  # -- Capacity of ephemeral storage for a node
+  ephemeral_storage_node_capacity: true
+  # -- Percentage of ephemeral storage used on a node
+  ephemeral_storage_node_percentage: true
+  # -- Create the ephemeral_storage_adjusted_polling_rate metrics to report Adjusted Poll Rate in milliseconds. Typically used for testing.
+  adjusted_polling_rate: false
+
+log_level: info
+# -- Set as Deployment for single controller to query all nodes or Daemonset
+deploy_type: Deployment
+# Note in testing, Kube API does not refresh faster than 10 seconds
+# -- Polling node rate for exporter
+interval: 15 # Seconds
+# -- Max number of concurrent query requests to the kubernetes API.
+max_node_concurrency: 10
+prometheus:
+  enable: true
+  release: kube-prometheus-stack
+
+# -- Enable Pprof
+pprof: false
+
+
+# -- For local development or testing that will deploy grow and shrink pods and debug service
+dev:
+  enabled: false
+  shrink:
+    image: ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest
+    imagePullPolicy: IfNotPresent
+  grow:
+    image: ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest
+    imagePullPolicy: IfNotPresent
+
+podAnnotations: {}
+
+nodeSelector: {}
+
+affinity: {}
+
+tolerations: []
+
+
