@@ -32,7 +32,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | dev | object | `{"enabled":false,"grow":{"image":"ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest","imagePullPolicy":"IfNotPresent"},"shrink":{"image":"ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest","imagePullPolicy":"IfNotPresent"}}` | For local development or testing that will deploy grow and shrink pods and debug service |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.6.2"` |  |
+| image.tag | string | `"1.6.3"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | log_level | string | `"info"` |  |
 | max_node_concurrency | int | `10` | Max number of concurrent query requests to the kubernetes API. |
@@ -49,13 +49,17 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | pprof | bool | `false` | Enable Pprof |
 | prometheus.enable | bool | `true` |  |
 | prometheus.release | string | `"kube-prometheus-stack"` |  |
+| serviceMonitor.metricRelabelings | list | `[]` |  |
+| serviceMonitor.podTargetLabels | list | `[]` |  |
+| serviceMonitor.relabelings | list | `[]` |  |
+| serviceMonitor.targetLabels | list | `[]` |  |
 | tolerations | list | `[]` |  |
 
 ## Contribute
 
-### Start Kind
+### Start minikube
 ```bash
-make new_kind
+make new_minikube
 ```
 
 ### Run locally
