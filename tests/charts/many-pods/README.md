@@ -51,9 +51,9 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 
 ## Contribute
 
-### Start Kind
+### Start minikube
 ```bash
-make new_kind
+make new_minikube
 ```
 
 ### Run locally
