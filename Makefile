@@ -30,6 +30,9 @@ helm-docs:
 	$(LOCALBIN)/helm-docs  --template-files "${GITROOT}/chart/README.md.gotmpl"
 	cat "${GITROOT}/Header.md" "${GITROOT}/chart/README.md" > "${GITROOT}/README.md"
 
+test-helm-render:
+	helm template ./chart -f ./chart/test-values.yaml 1> /dev/null
+
 minikube_new:
 	./scripts/create-minikube.sh
 
@@ -53,10 +56,13 @@ deploy_local: init
 deploy_observability:
 	ENV='observability' ./scripts/deploy.sh
 
-deploy_e2e: init ginkgo crane minikube_new
+deploy_test: init
+	ENV='test' ./scripts/deploy.sh
+
+deploy_e2e: init test-helm-render ginkgo crane minikube_new
 	ENV='e2e' ./scripts/deploy.sh
 
-deploy_e2e_dirty: init
+deploy_e2e_dirty: init test-helm-render
 	ENV='e2e' ./scripts/deploy.sh
 
 deploy_many_pods:
@@ -79,9 +85,20 @@ release-helm:
 	cd ..
 
 release: release-docker release-helm helm-docs
+	# Prod release
 	# ex. make VERSION=1.6.2 release
+	# Prerelease Candidate
+	# ex. make VERSION=1.6.3-rc01 release
+
+prerelease-github:
+	# Prerelease Candidate
+	# ex. make VERSION=1.6.3-rc01 prerelease-github
+	gh release create ${VERSION} --generate-notes --prerelease
+	gh release upload ${VERSION} "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz"
+	rm chart/k8s-ephemeral-storage-metrics-*.tgz
 
 release-github:
+	# Prod release
 	# ex. make VERSION=1.6.2 release-github
 	gh release create ${VERSION} --generate-notes
 	gh release upload ${VERSION} "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz"

@@ -112,10 +112,18 @@ function main() {
 
   common_set_values=$(echo ${common_set_values_arr[*]} | sed 's/, /,/g' | sed 's/ /,/g')
 
-  helm upgrade --install "${DEPLOYMENT_NAME}" ../chart \
-    --set "${common_set_values}" \
-    --create-namespace \
-    --namespace "${DEPLOYMENT_NAME}"
+  if [[ $ENV == "test" ]]; then
+    helm upgrade --install "${DEPLOYMENT_NAME}" ../chart \
+      -f ../chart/test-values.yaml \
+      --create-namespace \
+      --namespace "${DEPLOYMENT_NAME}"
+  else
+    # All other deployments
+    helm upgrade --install "${DEPLOYMENT_NAME}" ../chart \
+      --set "${common_set_values}" \
+      --create-namespace \
+      --namespace "${DEPLOYMENT_NAME}"
+  fi
 
   # Patch deploy so minikube image upload works.
   if [[ $ENV == "debug" ]]; then

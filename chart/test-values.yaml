@@ -1,17 +1,18 @@
+
 image:
   repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics
   tag: 1.6.2
   imagePullPolicy: IfNotPresent
 
 serviceMonitor:
-   # Set relabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig
-   relabelings: []
-  # Set metricRelabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig
-   metricRelabelings: []
-   # Set targetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec
-   targetLabels: []
-   # Set podTargetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec
-   podTargetLabels: []
+  relabelings:
+    - sourceLabels: [pod_name]
+      targetLabel: pod
+    - sourceLabels: [pod_namespace]
+      targetLabel: namespace
+    # drop labels pod_.*
+    - regex: "pod_(.*)"
+      action: labeldrop
 
 
 # -- Set metrics you want to enable
@@ -64,3 +65,5 @@ nodeSelector: {}
 affinity: {}
 
 tolerations: []
+
+

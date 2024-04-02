@@ -11,13 +11,33 @@ spec:
       port: metrics
       scheme: http
       interval: "{{ .Values.interval }}s"
+{{- if .Values.serviceMonitor.metricRelabelings }}
+      metricRelabelings:
+{{ toYaml .Values.serviceMonitor.metricRelabelings | indent 8 }}
+{{- end }}
+{{- if .Values.serviceMonitor.relabelings }}
+      relabelings:
+{{ toYaml .Values.serviceMonitor.relabelings | indent 8 }}
+{{- end }}
   namespaceSelector:
     matchNames:
       - {{ .Release.Namespace }}
   selector:
     matchLabels:
       {{- include "chart.selectorLabels" . | nindent 6 }}
-
+  {{- if .Values.serviceMonitor.targetLabels }}
+  targetLabels:
+    {{- range .Values.serviceMonitor.targetLabels }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.serviceMonitor.podTargetLabels }}
+  podTargetLabels:
+    {{- range .Values.serviceMonitor.podTargetLabels }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+  
 ---
 
 apiVersion: v1
