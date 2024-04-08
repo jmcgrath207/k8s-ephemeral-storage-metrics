@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/cenkalti/backoff/v4"
-	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
+	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/node"
 	"github.com/panjf2000/ants/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -15,15 +15,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"net/http"
 	"net/http/pprof"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync"
@@ -31,82 +26,19 @@ import (
 )
 
 var (
-	inCluster                                       string
-	clientset                                       *kubernetes.Clientset
 	sampleInterval                                  int64
 	sampleIntervalMill                              int64
-	adjustedPollingRate                             bool
 	ephemeralStoragePodUsage                        bool
-	ephemeralStorageNodeAvailable                   bool
-	ephemeralStorageNodeCapacity                    bool
-	ephemeralStorageNodePercentage                  bool
 	ephemeralStorageContainerLimitsPercentage       bool
 	ephemeralStorageContainerVolumeLimitsPercentage bool
-	adjustedPollingRateGaugeVec                     *prometheus.GaugeVec
-	deployType                                      string
-	nodeWaitGroup                                   sync.WaitGroup
 	podDataWaitGroup                                sync.WaitGroup
 	podGaugeVec                                     *prometheus.GaugeVec
-	nodeAvailableGaugeVec                           *prometheus.GaugeVec
-	nodeCapacityGaugeVec                            *prometheus.GaugeVec
-	nodePercentageGaugeVec                          *prometheus.GaugeVec
 	containerPercentageLimitsVec                    *prometheus.GaugeVec
 	containerPercentageVolumeLimitsVec              *prometheus.GaugeVec
-	maxNodeConcurrency                              int
 	podResourceLookup                               map[string]pod
 	podResourceLookupMutex                          sync.RWMutex
-	nodeSet                                         mapset.Set[string]
+	Node                                            node.Node
 )
-
-func getEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-	return fallback
-}
-
-func getK8sClient() {
-	inCluster = getEnv("IN_CLUSTER", "true")
-
-	if inCluster == "true" {
-
-		config, err := rest.InClusterConfig()
-		if err != nil {
-			log.Error().Msg("Failed to get rest config for in cluster client")
-			panic(err.Error())
-		}
-		// creates the clientset
-		clientset, err = kubernetes.NewForConfig(config)
-		if err != nil {
-			log.Error().Msg("Failed to get client set for in cluster client")
-			panic(err.Error())
-		}
-		log.Debug().Msg("Successful got the in cluster client")
-
-	} else {
-
-		var kubeconfig *string
-		if home := homedir.HomeDir(); home != "" {
-			kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-		} else {
-			kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-		}
-		flag.Parse()
-
-		// use the current context in kubeconfig
-		config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
-		if err != nil {
-			panic(err.Error())
-		}
-
-		// create the clientset
-		clientset, err = kubernetes.NewForConfig(config)
-		if err != nil {
-			panic(err.Error())
-		}
-
-	}
-}
 
 type volume struct {
 	AvailableBytes int64  `json:"availableBytes"`
@@ -214,7 +146,7 @@ func getPodData(p v1.Pod) {
 func initGetPodsData() {
 	podResourceLookup = make(map[string]pod)
 	// Init Get List of all pods
-	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+	pods, err := dev.Clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Error().Msgf("Error getting pods: %v\n", err)
 		os.Exit(1)
@@ -231,7 +163,7 @@ func podWatch() {
 	podDataWaitGroup.Wait()
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	sharedInformerFactory := informers.NewSharedInformerFactory(clientset, time.Duration(sampleInterval)*time.Second)
+	sharedInformerFactory := informers.NewSharedInformerFactory(dev.Clientset, time.Duration(sampleInterval)*time.Second)
 	podInformer := sharedInformerFactory.Core().V1().Pods().Informer()
 
 	// Define event handlers for Pod events
@@ -279,108 +211,14 @@ func evictPodFromMetrics(p v1.Pod) {
 	}
 }
 
-func NodeWatch() {
-	nodeWaitGroup.Wait()
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-	sharedInformerFactory := informers.NewSharedInformerFactory(clientset, time.Duration(sampleInterval)*time.Second)
-	podInformer := sharedInformerFactory.Core().V1().Nodes().Informer()
-
-	// Define event handlers for Pod events
-	eventHandler := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			p := obj.(*v1.Node)
-			nodeSet.Add(p.Name)
-		},
-		DeleteFunc: func(obj interface{}) {
-			p := obj.(*v1.Node)
-			nodeSet.Remove(p.Name)
-			evictNode(p.Name)
-		},
-	}
-
-	// Register the event handlers with the informer
-	_, err := podInformer.AddEventHandler(eventHandler)
-	if err != nil {
-		log.Err(err)
-		os.Exit(1)
-	}
-
-	// Start the informer to begin watching for Node events
-	go sharedInformerFactory.Start(stopCh)
-
-	for {
-		time.Sleep(time.Duration(sampleInterval) * time.Second)
-		select {
-		case <-stopCh:
-			log.Error().Msg("Watcher NodeWatch stopped.")
-			os.Exit(1)
-		}
-	}
-}
-
-func evictNode(node string) {
-
-	nodeAvailableGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
-	nodeCapacityGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
-	nodePercentageGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
-	if adjustedPollingRate {
-		adjustedPollingRateGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
-	}
-	log.Info().Msgf("Node %s does not exist. Removed from monitoring", node)
-}
-
-func getNodes() {
-	nodeSet = mapset.NewSet[string]()
-	nodeWaitGroup.Add(1)
-	if deployType != "Deployment" {
-		nodeSet.Add(getEnv("CURRENT_NODE_NAME", ""))
-		nodeWaitGroup.Done()
-		return
-	}
-
-	// Init Node slice
-	startNodes, _ := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-	for _, node := range startNodes.Items {
-		nodeSet.Add(node.Name)
-	}
-	nodeWaitGroup.Done()
-
-}
-
-func queryNode(node string) ([]byte, error) {
-	var content []byte
-
-	bo := backoff.NewExponentialBackOff()
-	bo.MaxInterval = 1 * time.Second
-	bo.MaxElapsedTime = time.Duration(sampleInterval) * time.Second
-
-	operation := func() error {
-		var err error
-		content, err = clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", node)).DoRaw(context.Background())
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
-	err := backoff.Retry(operation, bo)
-
-	if err != nil {
-		log.Warn().Msg(fmt.Sprintf("Failed fetched proxy stats from node : %s", node))
-		return nil, err
-	}
-
-	return content, nil
-
-}
-
 func createMetricsValues(podName string, podNamespace string, nodeName string, usedBytes float64, availableBytes float64, capacityBytes float64, volumes []volume) {
 
 	var setValue float64
 	podResourceLookupMutex.RLock()
 	podResult, okPodResult := podResourceLookup[podName]
 	podResourceLookupMutex.RUnlock()
+
+	Node.SetMetrics(nodeName, availableBytes, capacityBytes)
 
 	// TODO: something seems wrong about the metrics.
 	//		the volume capacityBytes is not reflected in this query
@@ -431,40 +269,23 @@ func createMetricsValues(podName string, podNamespace string, nodeName string, u
 		podGaugeVec.With(labels).Set(usedBytes)
 		log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
 	}
-	if ephemeralStorageNodeAvailable {
-		nodeAvailableGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(availableBytes)
-		log.Debug().Msg(fmt.Sprintf("Node: %s availble bytes: %f", nodeName, availableBytes))
-	}
-
-	if ephemeralStorageNodeCapacity {
-		nodeCapacityGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(capacityBytes)
-		log.Debug().Msg(fmt.Sprintf("Node: %s capacity bytes: %f", nodeName, capacityBytes))
-	}
-
-	if ephemeralStorageNodePercentage {
-		setValue = (availableBytes / capacityBytes) * 100.0
-		nodePercentageGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(setValue)
-		log.Debug().Msg(fmt.Sprintf("Node: %s percentage used: %f", nodeName, setValue))
-	}
 
 }
 
-func setMetrics(node string) {
+func setMetrics(nodeName string) {
 
 	var data ephemeralStorageMetrics
 
 	start := time.Now()
 
-	content, err := queryNode(node)
+	content, err := Node.Query(nodeName)
 	if err != nil {
-		log.Warn().Msgf("Could not query node %s for ephemeral storage", node)
+		log.Warn().Msgf("Could not query node %s for ephemeral storage", nodeName)
 		return
 	}
 
-	log.Debug().Msg(fmt.Sprintf("Fetched proxy stats from node : %s", node))
+	log.Debug().Msg(fmt.Sprintf("Fetched proxy stats from node : %s", nodeName))
 	_ = json.Unmarshal(content, &data)
-
-	nodeName := data.Node.NodeName
 
 	for _, p := range data.Pods {
 		podName := p.PodRef.Name
@@ -484,8 +305,8 @@ func setMetrics(node string) {
 	if adjustTime <= 0.0 {
 		log.Error().Msgf("Node %s: Polling Rate could not keep up. Adjust your Interval to a higher number than %d seconds", nodeName, sampleInterval)
 	}
-	if adjustedPollingRate {
-		adjustedPollingRateGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(float64(adjustTime))
+	if Node.AdjustedPollingRate {
+		node.AdjustedPollingRateGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(float64(adjustTime))
 	}
 
 }
@@ -548,72 +369,23 @@ func createMetrics() {
 
 	prometheus.MustRegister(containerPercentageVolumeLimitsVec)
 
-	nodeAvailableGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "ephemeral_storage_node_available",
-		Help: "Available ephemeral storage for a node",
-	},
-		[]string{
-			// Name of Node where pod is placed.
-			"node_name",
-		},
-	)
-
-	prometheus.MustRegister(nodeAvailableGaugeVec)
-
-	nodeCapacityGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "ephemeral_storage_node_capacity",
-		Help: "Capacity of ephemeral storage for a node",
-	},
-		[]string{
-			// Name of Node where pod is placed.
-			"node_name",
-		},
-	)
-
-	prometheus.MustRegister(nodeCapacityGaugeVec)
-
-	nodePercentageGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "ephemeral_storage_node_percentage",
-		Help: "Percentage of ephemeral storage used on a node",
-	},
-		[]string{
-			// Name of Node where pod is placed.
-			"node_name",
-		},
-	)
-
-	prometheus.MustRegister(nodePercentageGaugeVec)
-
-	if adjustedPollingRate {
-		adjustedPollingRateGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Name: "ephemeral_storage_adjusted_polling_rate",
-			Help: "AdjustTime polling rate time after a Node API queries in Milliseconds",
-		},
-			[]string{
-				// Name of Node where pod is placed.
-				"node_name",
-			})
-
-		prometheus.MustRegister(adjustedPollingRateGaugeVec)
-	}
-
 }
 
 func getMetrics() {
 
-	nodeWaitGroup.Wait()
+	Node.WaitGroup.Wait()
 	if ephemeralStorageContainerLimitsPercentage || ephemeralStorageContainerVolumeLimitsPercentage {
 		podDataWaitGroup.Wait()
 	}
 
-	p, _ := ants.NewPoolWithFunc(maxNodeConcurrency, func(node interface{}) {
+	p, _ := ants.NewPoolWithFunc(Node.MaxNodeQueryConcurrency, func(node interface{}) {
 		setMetrics(node.(string))
 	}, ants.WithExpiryDuration(time.Duration(sampleInterval)*time.Second))
 
 	defer p.Release()
 
 	for {
-		nodeSlice := nodeSet.ToSlice()
+		nodeSlice := Node.Set.ToSlice()
 
 		for _, node := range nodeSlice {
 			_ = p.Invoke(node)
@@ -633,7 +405,7 @@ func (h LineInfoHook) Run(e *zerolog.Event, l zerolog.Level, msg string) {
 }
 
 func setLogger() {
-	logLevel := getEnv("LOG_LEVEL", "info")
+	logLevel := dev.GetEnv("LOG_LEVEL", "info")
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	level, err := zerolog.ParseLevel(logLevel)
 	if err != nil {
@@ -659,39 +431,33 @@ func enablePprof() {
 
 func main() {
 	flag.Parse()
-	port := getEnv("METRICS_PORT", "9100")
+	port := dev.GetEnv("METRICS_PORT", "9100")
 	// TODO: move to a configmap.
-	adjustedPollingRate, _ = strconv.ParseBool(getEnv("ADJUSTED_POLLING_RATE", "false"))
-	ephemeralStoragePodUsage, _ = strconv.ParseBool(getEnv("EPHEMERAL_STORAGE_POD_USAGE", "false"))
-	ephemeralStorageNodeAvailable, _ = strconv.ParseBool(getEnv("EPHEMERAL_STORAGE_NODE_AVAILABLE", "false"))
-	ephemeralStorageNodeCapacity, _ = strconv.ParseBool(getEnv("EPHEMERAL_STORAGE_NODE_CAPACITY", "false"))
-	ephemeralStorageNodePercentage, _ = strconv.ParseBool(getEnv("EPHEMERAL_STORAGE_NODE_PERCENTAGE", "false"))
-	ephemeralStorageContainerLimitsPercentage, _ = strconv.ParseBool(getEnv("EPHEMERAL_STORAGE_CONTAINER_LIMIT_PERCENTAGE", "false"))
-	ephemeralStorageContainerVolumeLimitsPercentage, _ = strconv.ParseBool(getEnv("EPHEMERAL_STORAGE_CONTAINER_VOLUME_LIMITS_PERCENTAGE", "false"))
-	pprofEnabled, _ := strconv.ParseBool(getEnv("PPROF", "false"))
-	deployType = getEnv("DEPLOY_TYPE", "DaemonSet")
-	sampleInterval, _ = strconv.ParseInt(getEnv("SCRAPE_INTERVAL", "15"), 10, 64)
-	maxNodeConcurrency, _ = strconv.Atoi(getEnv("MAX_NODE_CONCURRENCY", "10"))
+	ephemeralStoragePodUsage, _ = strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_POD_USAGE", "false"))
+	ephemeralStorageContainerLimitsPercentage, _ = strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_CONTAINER_LIMIT_PERCENTAGE", "false"))
+	ephemeralStorageContainerVolumeLimitsPercentage, _ = strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_CONTAINER_VOLUME_LIMITS_PERCENTAGE", "false"))
+
+	// Shared Vars
+	pprofEnabled, _ := strconv.ParseBool(dev.GetEnv("PPROF", "false"))
+	sampleInterval, _ = strconv.ParseInt(dev.GetEnv("SCRAPE_INTERVAL", "15"), 10, 64)
 	sampleIntervalMill = sampleInterval * 1000
+
+	Node = node.NewNode(sampleInterval)
 
 	if pprofEnabled {
 		go enablePprof()
 	}
 	setLogger()
-	getK8sClient()
+	dev.SetK8sClient()
 	createMetrics()
 	if ephemeralStorageContainerLimitsPercentage || ephemeralStorageContainerVolumeLimitsPercentage {
 		podDataWaitGroup.Add(1)
 		go initGetPodsData()
 		go podWatch()
 	}
-	go getNodes()
-	go NodeWatch()
+	go Node.Get()
+	go Node.Watch()
 	go getMetrics()
-	if deployType != "Deployment" && deployType != "DaemonSet" {
-		log.Error().Msg(fmt.Sprintf("deployType must be 'Deployment' or 'DaemonSet', got %s", deployType))
-		os.Exit(1)
-	}
 	http.Handle("/metrics", promhttp.Handler())
 	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s", port))
 	err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)

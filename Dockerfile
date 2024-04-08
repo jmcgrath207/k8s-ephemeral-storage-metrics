@@ -8,11 +8,14 @@ ARG TARGETARCH
 
 WORKDIR /code
 
-COPY . .
+COPY pkg pkg
+COPY cmd cmd
+COPY go.mod go.mod
+COPY go.sum go.sum
 
 RUN go mod download
 
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-X main.Commit=$(git rev-parse HEAD)" -a -o app main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -o app ./cmd/app/main.go
 
 FROM --platform=${BUILDPLATFORM:-linux/amd64} gcr.io/distroless/static:nonroot
 LABEL org.opencontainers.image.source="https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics"
