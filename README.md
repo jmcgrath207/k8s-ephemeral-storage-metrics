@@ -53,6 +53,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | serviceMonitor.podTargetLabels | list | `[]` |  |
 | serviceMonitor.relabelings | list | `[]` |  |
 | serviceMonitor.targetLabels | list | `[]` |  |
+| serviceMonitor.additionalLabels | object | `{}` |  |
 | tolerations | list | `[]` |  |
 
 ## Contribute
