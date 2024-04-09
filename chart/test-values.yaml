@@ -5,6 +5,8 @@ image:
   imagePullPolicy: IfNotPresent
 
 serviceMonitor:
+  additionalLabels:
+    test: label
   relabelings:
     - sourceLabels: [pod_name]
       targetLabel: pod

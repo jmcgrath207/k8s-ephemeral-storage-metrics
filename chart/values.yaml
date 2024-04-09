@@ -1,18 +1,20 @@
 image:
   repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics
-  tag: 1.6.3
+  tag: 1.7.0
   imagePullPolicy: IfNotPresent
 
+# -- Configure the Service Monitor
 serviceMonitor:
-   # Set relabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig
-   relabelings: []
-  # Set metricRelabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig
-   metricRelabelings: []
-   # Set targetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec
-   targetLabels: []
-   # Set podTargetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec
-   podTargetLabels: []
+   # -- Add labels to the ServiceMonitor.Spec
    additionalLabels: {}
+   # -- Set relabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig
+   relabelings: []
+   # -- Set metricRelabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig
+   metricRelabelings: []
+   # -- Set targetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec
+   targetLabels: []
+   # -- Set podTargetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec
+   podTargetLabels: []
 
 
 # -- Set metrics you want to enable
