@@ -26,7 +26,7 @@ type Node struct {
 	WaitGroup               *sync.WaitGroup
 }
 
-func NewNode(sampleInterval int64) Node {
+func NewCollector(sampleInterval int64) Node {
 
 	adjustedPollingRate, _ := strconv.ParseBool(dev.GetEnv("ADJUSTED_POLLING_RATE", "false"))
 	deployType := dev.GetEnv("DEPLOY_TYPE", "DaemonSet")
