@@ -12,6 +12,7 @@ var (
 )
 
 type Collector struct {
+	containerVolumeUsage            bool
 	containerLimitsPercentage       bool
 	containerVolumeLimitsPercentage bool
 	lookup                          *map[string]pod
@@ -23,11 +24,13 @@ type Collector struct {
 
 func NewCollector(sampleInterval int64) Collector {
 	podUsage, _ := strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_POD_USAGE", "false"))
+	containerVolumeUsage, _ := strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_CONTAINER_VOLUME_USAGE", "false"))
 	containerLimitsPercentage, _ := strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_CONTAINER_LIMIT_PERCENTAGE", "false"))
 	containerVolumeLimitsPercentage, _ := strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_CONTAINER_VOLUME_LIMITS_PERCENTAGE", "false"))
 	lookup := make(map[string]pod)
 
 	var c = Collector{
+		containerVolumeUsage:            containerVolumeUsage,
 		containerLimitsPercentage:       containerLimitsPercentage,
 		containerVolumeLimitsPercentage: containerVolumeLimitsPercentage,
 		lookup:                          &lookup,

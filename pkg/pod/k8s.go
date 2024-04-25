@@ -108,23 +108,23 @@ func (cr Collector) getContainerData(c v1.Container, p v1.Pod) container {
 	setContainer.name = c.Name
 	matchKey := v1.ResourceName("ephemeral-storage")
 
-	if cr.containerVolumeLimitsPercentage && p.Spec.Volumes != nil {
+	if cr.containerVolumeUsage && cr.containerVolumeLimitsPercentage && p.Spec.Volumes != nil {
 		collectMounts := false
 
 		podMountsMap := make(map[string]float64)
 		for _, v := range p.Spec.Volumes {
 			if v.VolumeSource.EmptyDir != nil {
+				podMountsMap[v.Name] = 0
+				collectMounts = true
 				if v.VolumeSource.EmptyDir.SizeLimit != nil {
 					podMountsMap[v.Name] = v.VolumeSource.EmptyDir.SizeLimit.AsApproximateFloat64()
 					collectMounts = true
 				}
 			}
-
 		}
 
 		if collectMounts {
 			var collectVolumes []emptyDirVolumes
-
 			for _, volumeMount := range c.VolumeMounts {
 				size, ok := podMountsMap[volumeMount.Name]
 				if ok {
