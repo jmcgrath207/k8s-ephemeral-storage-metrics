@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics
-  tag: 1.8.0
+  tag: 1.9.0
   imagePullPolicy: IfNotPresent
 
 # -- Configure the Service Monitor
@@ -21,6 +21,8 @@ serviceMonitor:
 metrics:
   # -- Percentage of ephemeral storage used by a container in a pod
   ephemeral_storage_container_limit_percentage: true
+  # -- Current ephemeral storage used by a container's volume in a pod
+  ephemeral_storage_container_volume_usage: true
   # -- Percentage of ephemeral storage used by a container's volume in a pod
   ephemeral_storage_container_volume_limit_percentage: true
   # -- Current ephemeral byte usage of pod

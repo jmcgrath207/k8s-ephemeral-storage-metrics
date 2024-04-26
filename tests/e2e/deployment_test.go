@@ -220,6 +220,16 @@ func getContainerVolumeLimitPercentage(podName string) float64 {
 	return currentPodSize
 }
 
+func getContainerVolumeUsage(podName string) float64 {
+	output := requestPrometheusString()
+	re := regexp.MustCompile(
+		fmt.Sprintf(`ephemeral_storage_container_volume_usage.+container="%s",mount_path="\/cache".+\}\s(.+)`,
+			podName))
+	match := re.FindAllStringSubmatch(output, 2)
+	currentPodSize, _ := strconv.ParseFloat(match[0][1], 64)
+	return currentPodSize
+}
+
 func WatchEphemeralSize(podName string, desiredSizeChange float64, timeout time.Duration, getPodSize getPodSize) {
 	// Watch Prometheus Metrics until the ephemeral storage shrinks or grows to a certain desiredSizeChange.
 	var currentPodSize float64
@@ -291,7 +301,9 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 				"ephemeral_storage_node_percentage",
 				"pod_name=\"k8s-ephemeral-storage", "ephemeral_storage_adjusted_polling_rate",
 				"node_name=\"minikube",
-				"ephemeral_storage_container_limit_percentage")
+				"ephemeral_storage_container_limit_percentage",
+				"ephemeral_storage_container_volume_limit_percentage",
+				"ephemeral_storage_container_volume_usage")
 			checkPrometheus(checkSlice, false)
 		})
 	})
@@ -334,6 +346,14 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 		})
 		ginkgo.Specify("\nWatch Pod shrink to 0.2 percent", func() {
 			WatchEphemeralSize("shrink-test", 0.2, time.Second*180, getContainerVolumeLimitPercentage)
+		})
+	})
+	ginkgo.Context("Observe change in ephemeral_storage_container_volume_usage metric\n", func() {
+		ginkgo.Specify("\nWatch Pod grow to 0.2 percent", func() {
+			WatchEphemeralSize("grow-test", 100000, time.Second*180, getContainerVolumeUsage)
+		})
+		ginkgo.Specify("\nWatch Pod shrink to 0.2 percent", func() {
+			WatchEphemeralSize("shrink-test", 100000, time.Second*180, getContainerVolumeUsage)
 		})
 	})
 	ginkgo.Context("\nMake sure percentage is not over 100", func() {
