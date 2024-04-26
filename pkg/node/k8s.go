@@ -61,6 +61,9 @@ func (n *Node) Query(node string) ([]byte, error) {
 		var err error
 		if !n.scrapeFromKubelet || n.deployType != "Deployment" {
 			content, err = dev.Clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", node)).DoRaw(context.Background())
+			if err != nil {
+				return err
+			}
 		} else {
 			kubeletep, ok := n.KubeletEndpoint.Load(node)
 			if !ok || kubeletep == "" {
@@ -77,9 +80,12 @@ func (n *Node) Query(node string) ([]byte, error) {
 			}
 			defer resp.Body.Close()
 			content, err = io.ReadAll(resp.Body)
-		}
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("failed to scrape from kubelet endpoint: unexpected status code %d: %s", resp.StatusCode, string(content))
+			}
 		}
 		return nil
 	}
