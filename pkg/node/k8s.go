@@ -22,7 +22,10 @@ import (
 func (n *Node) getKubeletEndpoint(node *v1.Node) string {
 	for _, addr := range node.Status.Addresses {
 		if addr.Type == v1.NodeInternalIP {
-			return net.JoinHostPort(addr.Address, strconv.Itoa(int(node.Status.DaemonEndpoints.KubeletEndpoint.Port)))
+			if n.kubeletReadOnlyPort > 0 {
+				return "http://" + net.JoinHostPort(addr.Address, strconv.Itoa(n.kubeletReadOnlyPort))
+			}
+			return "https://" + net.JoinHostPort(addr.Address, strconv.Itoa(int(node.Status.DaemonEndpoints.KubeletEndpoint.Port)))
 		}
 	}
 	return ""
@@ -61,10 +64,16 @@ func (n *Node) Query(node string) ([]byte, error) {
 		} else {
 			kubeletep, ok := n.KubeletEndpoint.Load(node)
 			if !ok || kubeletep == "" {
-				kubeletep = fmt.Sprintf("%s:10250", node)
+				return fmt.Errorf("kubelet endpoint not found for node: %s", node)
 			}
-			if resp, err = dev.Client.Get(fmt.Sprintf("https://%s/stats/summary", kubeletep.(string))); err != nil {
-				return err
+			if n.kubeletReadOnlyPort > 0 {
+				if resp, err = dev.ClientAno.Get(fmt.Sprintf("%s/stats/summary", kubeletep.(string))); err != nil {
+					return err
+				}
+			} else {
+				if resp, err = dev.ClientRaw.Get(fmt.Sprintf("%s/stats/summary", kubeletep.(string))); err != nil {
+					return err
+				}
 			}
 			defer resp.Body.Close()
 			content, err = io.ReadAll(resp.Body)

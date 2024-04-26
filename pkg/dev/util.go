@@ -16,7 +16,8 @@ import (
 
 var (
 	Clientset *kubernetes.Clientset
-	Client    *http.Client
+	ClientRaw *http.Client
+	ClientAno *http.Client
 )
 
 func GetEnv(key, fallback string) string {
@@ -34,16 +35,23 @@ func SetK8sClient() {
 		panic(err.Error())
 	}
 
-	// creates the raw client
+	// creates the raw client with authentication
 	newConfig := *config
-	insecure, _ := strconv.ParseBool(GetEnv("SCRAPE_FROM_KUBELET_INSECURE", "false"))
+	insecure, _ := strconv.ParseBool(GetEnv("SCRAPE_FROM_KUBELET_TLS_INSECURE_SKIP_VERIFY", "false"))
 	if insecure {
 		newConfig.TLSClientConfig.Insecure = true
 		newConfig.TLSClientConfig.CAFile = ""
 		newConfig.TLSClientConfig.CAData = nil
 	}
-	if Client, err = rest.HTTPClientFor(&newConfig); err != nil {
-		log.Error().Msg("Failed to get rest config for http client")
+	if ClientRaw, err = rest.HTTPClientFor(&newConfig); err != nil {
+		log.Error().Msg("Failed to get raw http client")
+		panic(err.Error())
+	}
+
+	// creates the raw client without authentication
+	anoConfig := rest.AnonymousClientConfig(config)
+	if ClientAno, err = rest.HTTPClientFor(anoConfig); err != nil {
+		log.Error().Msg("Failed to get anonymous http client")
 		panic(err.Error())
 	}
 

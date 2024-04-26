@@ -24,6 +24,7 @@ type Node struct {
 	nodePercentage          bool
 	sampleInterval          int64
 	scrapeFromKubelet       bool
+	kubeletReadOnlyPort     int
 	Set                     mapset.Set[string]
 	KubeletEndpoint         *sync.Map // key=nodeName val=kubeletEndpoint
 	WaitGroup               *sync.WaitGroup
@@ -38,6 +39,7 @@ func NewCollector(sampleInterval int64) Node {
 	nodePercentage, _ := strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_NODE_PERCENTAGE", "false"))
 	maxNodeQueryConcurrency, _ := strconv.Atoi(dev.GetEnv("MAX_NODE_CONCURRENCY", "10"))
 	scrapeFromKubelet, _ := strconv.ParseBool(dev.GetEnv("SCRAPE_FROM_KUBELET", "false"))
+	kubeletReadOnlyPort, _ := strconv.Atoi(dev.GetEnv("KUBELET_READONLY_PORT", "0"))
 	set := mapset.NewSet[string]()
 	mp := &sync.Map{}
 
@@ -55,6 +57,7 @@ func NewCollector(sampleInterval int64) Node {
 		nodePercentage:          nodePercentage,
 		sampleInterval:          sampleInterval,
 		scrapeFromKubelet:       scrapeFromKubelet,
+		kubeletReadOnlyPort:     kubeletReadOnlyPort,
 		Set:                     set,
 		KubeletEndpoint:         mp,
 		WaitGroup:               &waitGroup,
