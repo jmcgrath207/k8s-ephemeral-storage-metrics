@@ -9,6 +9,7 @@ import (
 
 var (
 	podGaugeVec                        *prometheus.GaugeVec
+	containerVolumeUsageVec            *prometheus.GaugeVec
 	containerPercentageLimitsVec       *prometheus.GaugeVec
 	containerPercentageVolumeLimitsVec *prometheus.GaugeVec
 )
@@ -37,6 +38,28 @@ func (cr Collector) createMetrics() {
 	)
 
 	prometheus.MustRegister(podGaugeVec)
+
+	containerVolumeUsageVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_volume_usage",
+		Help: "Current ephemeral storage used by a container's volume in a pod",
+	},
+		[]string{
+			// name of pod for Ephemeral Storage
+			"pod_name",
+			// namespace of pod for Ephemeral Storage
+			"pod_namespace",
+			// Name of Node where pod is placed.
+			"node_name",
+			// Name of container
+			"container",
+			// Name of Volume
+			"volume_name",
+			// Name of Mount Path
+			"mount_path",
+		},
+	)
+
+	prometheus.MustRegister(containerVolumeUsageVec)
 
 	containerPercentageLimitsVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ephemeral_storage_container_limit_percentage",
@@ -92,7 +115,7 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 	// 		need to source it from the pod spec
 	// 		make issue upstream with CA advisor
 	// TODO: need to do a grow and shrink test for this.
-	if cr.containerVolumeLimitsPercentage {
+	if cr.containerVolumeUsage {
 		// TODO: what a mess...need to figure out a better way.
 		if okPodResult {
 			for _, c := range podResult.containers {
@@ -103,7 +126,30 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 								labels := prometheus.Labels{"pod_namespace": podNamespace,
 									"pod_name": podName, "node_name": nodeName, "container": c.name, "volume_name": v.Name,
 									"mount_path": edv.mountPath}
-								containerPercentageVolumeLimitsVec.With(labels).Set((float64(v.UsedBytes) / edv.sizeLimit) * 100.0)
+								containerVolumeUsageVec.With(labels).Set(float64(v.UsedBytes))
+								log.Debug().Msg(fmt.Sprintf("pod %s/%s/%s  on %s with usedBytes: %f", podNamespace, podName, c.name, nodeName, usedBytes))
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if cr.containerVolumeLimitsPercentage {
+		// TODO: what a mess...need to figure out a better way.
+		if okPodResult {
+			for _, c := range podResult.containers {
+				if c.emptyDirVolumes != nil {
+					for _, edv := range c.emptyDirVolumes {
+						if edv.sizeLimit != 0 {
+							for _, v := range volumes {
+								if edv.name == v.Name {
+									labels := prometheus.Labels{"pod_namespace": podNamespace,
+										"pod_name": podName, "node_name": nodeName, "container": c.name, "volume_name": v.Name,
+										"mount_path": edv.mountPath}
+									containerPercentageVolumeLimitsVec.With(labels).Set((float64(v.UsedBytes) / edv.sizeLimit) * 100.0)
+								}
 							}
 						}
 					}
@@ -141,6 +187,7 @@ func evictPodFromMetrics(p v1.Pod) {
 
 	podGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 	for _, c := range p.Spec.Containers {
+		containerVolumeUsageVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
 		containerPercentageLimitsVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
 		containerPercentageVolumeLimitsVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
 	}
