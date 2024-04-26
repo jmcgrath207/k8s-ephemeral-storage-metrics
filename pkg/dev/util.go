@@ -2,18 +2,21 @@ package dev
 
 import (
 	"fmt"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"net/http"
 	"net/http/pprof"
 	"os"
 	"runtime"
+	"strconv"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 var (
 	Clientset *kubernetes.Clientset
+	Client    *http.Client
 )
 
 func GetEnv(key, fallback string) string {
@@ -30,6 +33,20 @@ func SetK8sClient() {
 		log.Error().Msg("Failed to get rest config for in cluster client")
 		panic(err.Error())
 	}
+
+	// creates the raw client
+	newConfig := *config
+	insecure, _ := strconv.ParseBool(GetEnv("SCRAPE_FROM_KUBELET_INSECURE", "false"))
+	if insecure {
+		newConfig.TLSClientConfig.Insecure = true
+		newConfig.TLSClientConfig.CAFile = ""
+		newConfig.TLSClientConfig.CAData = nil
+	}
+	if Client, err = rest.HTTPClientFor(&newConfig); err != nil {
+		log.Error().Msg("Failed to get rest config for http client")
+		panic(err.Error())
+	}
+
 	// creates the clientset
 	Clientset, err = kubernetes.NewForConfig(config)
 	if err != nil {

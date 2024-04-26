@@ -3,6 +3,13 @@ package node
 import (
 	"context"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/cenkalti/backoff/v4"
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
 	"github.com/rs/zerolog/log"
@@ -10,9 +17,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
-	"os"
-	"time"
 )
+
+func (n *Node) getKubeletEndpoint(node *v1.Node) string {
+	for _, addr := range node.Status.Addresses {
+		if addr.Type == v1.NodeInternalIP {
+			return net.JoinHostPort(addr.Address, strconv.Itoa(int(node.Status.DaemonEndpoints.KubeletEndpoint.Port)))
+		}
+	}
+	return ""
+}
 
 func (n *Node) Get() {
 	n.WaitGroup.Add(1)
@@ -26,6 +40,7 @@ func (n *Node) Get() {
 	startNodes, _ := dev.Clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	for _, node := range startNodes.Items {
 		n.Set.Add(node.Name)
+		n.KubeletEndpoint.Store(node.Name, n.getKubeletEndpoint(&node))
 	}
 	n.WaitGroup.Done()
 
@@ -39,8 +54,21 @@ func (n *Node) Query(node string) ([]byte, error) {
 	bo.MaxElapsedTime = time.Duration(n.sampleInterval) * time.Second
 
 	operation := func() error {
+		var resp *http.Response
 		var err error
-		content, err = dev.Clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", node)).DoRaw(context.Background())
+		if !n.scrapeFromKubelet || n.deployType != "Deployment" {
+			content, err = dev.Clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", node)).DoRaw(context.Background())
+		} else {
+			kubeletep, ok := n.KubeletEndpoint.Load(node)
+			if !ok || kubeletep == "" {
+				kubeletep = fmt.Sprintf("%s:10250", node)
+			}
+			if resp, err = dev.Client.Get(fmt.Sprintf("https://%s/stats/summary", kubeletep.(string))); err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			content, err = io.ReadAll(resp.Body)
+		}
 		if err != nil {
 			return err
 		}
@@ -50,7 +78,7 @@ func (n *Node) Query(node string) ([]byte, error) {
 	err := backoff.Retry(operation, bo)
 
 	if err != nil {
-		log.Warn().Msg(fmt.Sprintf("Failed fetched proxy stats from node : %s", node))
+		log.Warn().Msg(fmt.Sprintf("Failed fetched proxy stats from node : %s: %v", node, err))
 		return nil, err
 	}
 
@@ -63,23 +91,25 @@ func (n *Node) Watch() {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	sharedInformerFactory := informers.NewSharedInformerFactory(dev.Clientset, time.Duration(n.sampleInterval)*time.Second)
-	podInformer := sharedInformerFactory.Core().V1().Nodes().Informer()
+	nodeInformer := sharedInformerFactory.Core().V1().Nodes().Informer()
 
 	// Define event handlers for Pod events
 	eventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			p := obj.(*v1.Node)
 			n.Set.Add(p.Name)
+			n.KubeletEndpoint.Store(p.Name, n.getKubeletEndpoint(p))
 		},
 		DeleteFunc: func(obj interface{}) {
 			p := obj.(*v1.Node)
 			n.Set.Remove(p.Name)
+			n.KubeletEndpoint.Delete(p.Name)
 			n.evict(p.Name)
 		},
 	}
 
 	// Register the event handlers with the informer
-	_, err := podInformer.AddEventHandler(eventHandler)
+	_, err := nodeInformer.AddEventHandler(eventHandler)
 	if err != nil {
 		log.Err(err)
 		os.Exit(1)
