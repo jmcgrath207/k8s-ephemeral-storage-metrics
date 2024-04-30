@@ -27,13 +27,9 @@ func GetEnv(key, fallback string) string {
 	return fallback
 }
 
-func SetK8sClient() {
+func setScrapeFromKubelet(config *rest.Config) {
 
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		log.Error().Msg("Failed to get rest config for in cluster client")
-		panic(err.Error())
-	}
+	var err error
 
 	// creates the raw client with authentication
 	newConfig := *config
@@ -53,6 +49,20 @@ func SetK8sClient() {
 	if ClientAno, err = rest.HTTPClientFor(anoConfig); err != nil {
 		log.Error().Msg("Failed to get anonymous http client")
 		panic(err.Error())
+	}
+}
+
+func SetK8sClient() {
+
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		log.Error().Msg("Failed to get rest config for in cluster client")
+		panic(err.Error())
+	}
+
+	scrapeFromKubelet, _ := strconv.ParseBool(GetEnv("SCRAPE_FROM_KUBELET", "false"))
+	if scrapeFromKubelet {
+		setScrapeFromKubelet(config)
 	}
 
 	// creates the clientset

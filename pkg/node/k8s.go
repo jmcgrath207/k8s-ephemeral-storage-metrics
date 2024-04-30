@@ -43,7 +43,9 @@ func (n *Node) Get() {
 	startNodes, _ := dev.Clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	for _, node := range startNodes.Items {
 		n.Set.Add(node.Name)
-		n.KubeletEndpoint.Store(node.Name, n.getKubeletEndpoint(&node))
+		if n.scrapeFromKubelet {
+			n.KubeletEndpoint.Store(node.Name, n.getKubeletEndpoint(&node))
+		}
 	}
 	n.WaitGroup.Done()
 
@@ -113,13 +115,17 @@ func (n *Node) Watch() {
 		AddFunc: func(obj interface{}) {
 			p := obj.(*v1.Node)
 			n.Set.Add(p.Name)
-			n.KubeletEndpoint.Store(p.Name, n.getKubeletEndpoint(p))
+			if n.scrapeFromKubelet {
+				n.KubeletEndpoint.Store(p.Name, n.getKubeletEndpoint(p))
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			p := obj.(*v1.Node)
 			n.Set.Remove(p.Name)
-			n.KubeletEndpoint.Delete(p.Name)
 			n.evict(p.Name)
+			if n.scrapeFromKubelet {
+				n.KubeletEndpoint.Delete(p.Name)
+			}
 		},
 	}
 
