@@ -32,8 +32,9 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | dev | object | `{"enabled":false,"grow":{"image":"ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest","imagePullPolicy":"IfNotPresent"},"shrink":{"image":"ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest","imagePullPolicy":"IfNotPresent"}}` | For local development or testing that will deploy grow and shrink pods and debug service |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.9.0"` |  |
+| image.tag | string | `"1.10.0"` |  |
 | interval | int | `15` | Polling node rate for exporter |
+| kubelet | object | `{"insecure":false,"readOnlyPort":0,"scrape":false}` | Scrape metrics through kubelet instead of kube api |
 | log_level | string | `"info"` |  |
 | max_node_concurrency | int | `10` | Max number of concurrent query requests to the kubernetes API. |
 | metrics | object | `{"adjusted_polling_rate":false,"ephemeral_storage_container_limit_percentage":true,"ephemeral_storage_container_volume_limit_percentage":true,"ephemeral_storage_container_volume_usage":true,"ephemeral_storage_node_available":true,"ephemeral_storage_node_capacity":true,"ephemeral_storage_node_percentage":true,"ephemeral_storage_pod_usage":true}` | Set metrics you want to enable |

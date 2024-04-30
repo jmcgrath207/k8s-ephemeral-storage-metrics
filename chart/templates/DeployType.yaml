@@ -106,6 +106,18 @@ spec:
             - name: EPHEMERAL_STORAGE_CONTAINER_VOLUME_LIMITS_PERCENTAGE
               value: "{{ .Values.metrics.ephemeral_storage_container_volume_limit_percentage }}"
               {{- end }}
+              {{- if .Values.kubelet.scrape }}
+            - name: SCRAPE_FROM_KUBELET
+              value: "{{ .Values.kubelet.scrape }}"
+              {{- end }}
+              {{- if .Values.kubelet.readOnlyPort }}
+            - name: KUBELET_READONLY_PORT
+              value: "{{ .Values.kubelet.readOnlyPort }}"
+              {{- end }}
+              {{- if .Values.kubelet.insecure }}
+            - name: SCRAPE_FROM_KUBELET_TLS_INSECURE_SKIP_VERIFY
+              value: "{{ .Values.kubelet.insecure }}"
+              {{- end }}
               {{- if .Values.metrics.adjusted_polling_rate }}
             - name: ADJUSTED_POLLING_RATE
               value: "{{ .Values.metrics.adjusted_polling_rate }}"
