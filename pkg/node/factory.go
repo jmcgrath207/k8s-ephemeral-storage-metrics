@@ -2,12 +2,13 @@ package node
 
 import (
 	"fmt"
-	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
-	"github.com/rs/zerolog/log"
 	"os"
 	"strconv"
 	"sync"
+
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -22,7 +23,10 @@ type Node struct {
 	nodeCapacity            bool
 	nodePercentage          bool
 	sampleInterval          int64
+	scrapeFromKubelet       bool
+	kubeletReadOnlyPort     int
 	Set                     mapset.Set[string]
+	KubeletEndpoint         *sync.Map // key=nodeName val=kubeletEndpoint
 	WaitGroup               *sync.WaitGroup
 }
 
@@ -34,7 +38,10 @@ func NewCollector(sampleInterval int64) Node {
 	nodeCapacity, _ := strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_NODE_CAPACITY", "false"))
 	nodePercentage, _ := strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_NODE_PERCENTAGE", "false"))
 	maxNodeQueryConcurrency, _ := strconv.Atoi(dev.GetEnv("MAX_NODE_CONCURRENCY", "10"))
+	scrapeFromKubelet, _ := strconv.ParseBool(dev.GetEnv("SCRAPE_FROM_KUBELET", "false"))
+	kubeletReadOnlyPort, _ := strconv.Atoi(dev.GetEnv("KUBELET_READONLY_PORT", "0"))
 	set := mapset.NewSet[string]()
+	mp := &sync.Map{}
 
 	if deployType != "Deployment" && deployType != "DaemonSet" {
 		log.Error().Msg(fmt.Sprintf("deployType must be 'Deployment' or 'DaemonSet', got %s", deployType))
@@ -49,7 +56,10 @@ func NewCollector(sampleInterval int64) Node {
 		nodeCapacity:            nodeCapacity,
 		nodePercentage:          nodePercentage,
 		sampleInterval:          sampleInterval,
+		scrapeFromKubelet:       scrapeFromKubelet,
+		kubeletReadOnlyPort:     kubeletReadOnlyPort,
 		Set:                     set,
+		KubeletEndpoint:         mp,
 		WaitGroup:               &waitGroup,
 	}
 	node.createMetrics()

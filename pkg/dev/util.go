@@ -2,18 +2,22 @@ package dev
 
 import (
 	"fmt"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"net/http"
 	"net/http/pprof"
 	"os"
 	"runtime"
+	"strconv"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 var (
 	Clientset *kubernetes.Clientset
+	ClientRaw *http.Client
+	ClientAno *http.Client
 )
 
 func GetEnv(key, fallback string) string {
@@ -30,6 +34,27 @@ func SetK8sClient() {
 		log.Error().Msg("Failed to get rest config for in cluster client")
 		panic(err.Error())
 	}
+
+	// creates the raw client with authentication
+	newConfig := *config
+	insecure, _ := strconv.ParseBool(GetEnv("SCRAPE_FROM_KUBELET_TLS_INSECURE_SKIP_VERIFY", "false"))
+	if insecure {
+		newConfig.TLSClientConfig.Insecure = true
+		newConfig.TLSClientConfig.CAFile = ""
+		newConfig.TLSClientConfig.CAData = nil
+	}
+	if ClientRaw, err = rest.HTTPClientFor(&newConfig); err != nil {
+		log.Error().Msg("Failed to get raw http client")
+		panic(err.Error())
+	}
+
+	// creates the raw client without authentication
+	anoConfig := rest.AnonymousClientConfig(config)
+	if ClientAno, err = rest.HTTPClientFor(anoConfig); err != nil {
+		log.Error().Msg("Failed to get anonymous http client")
+		panic(err.Error())
+	}
+
 	// creates the clientset
 	Clientset, err = kubernetes.NewForConfig(config)
 	if err != nil {
