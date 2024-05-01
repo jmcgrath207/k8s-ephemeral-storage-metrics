@@ -5,31 +5,42 @@
 
 set -e
 
-
-package=k8s-ephemeral-storage-metrics
+PACKAGE=k8s-ephemeral-storage-metrics
 
 if [ -z "$VERSION" ]; then
-  echo "The VERSION env is not set."
-  exit 1
+	echo "The VERSION env is not set."
+	exit 1
 fi
 
-
 gh auth token | docker login ghcr.io --username jmcgrath207 --password-stdin
-docker build -f Dockerfile -t ghcr.io/jmcgrath207/$package:$VERSION .
-docker build -f Dockerfile -t ghcr.io/jmcgrath207/$package:latest .
-docker push ghcr.io/jmcgrath207/$package:$VERSION
 
-docker build -f DockerfileTestGrow -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest .
-docker build -f DockerfileTestGrow -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:$VERSION .
-docker push ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:$VERSION
+if docker buildx ls | grep -q "$PACKAGE"; then
+	echo "Instance '$PACKAGE' already exists, skipping creation."
+	docker buildx use "$PACKAGE"
+else
+	docker buildx create --name "$PACKAGE" --use
+fi
 
-docker build -f DockerfileTestGrow -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest .
-docker build -f DockerfileTestGrow -t ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:$VERSION .
-docker push ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:$VERSION
+function build_docker_image() {
+  local image=$1
+  local dockerfile=$2
+  local tag=$3
+
+  docker buildx build \
+    --platform linux/arm64/v8,linux/amd64 \
+    --tag "ghcr.io/jmcgrath207/${image}:${tag}" \
+    --file "${dockerfile}" \
+    --push \
+    .
+}
+
+build_docker_image "${PACKAGE}" "Dockerfile" "$VERSION"
+build_docker_image "k8s-ephemeral-storage-grow-test" "DockerfileTestGrow" "$VERSION"
+build_docker_image "k8s-ephemeral-storage-shrink-test" "DockerfileTestShrink" "$VERSION"
 
 # Don't push the latest image tags if they are a release candidate
 if ! [[ $ENV =~ "rc" ]]; then
-  docker push ghcr.io/jmcgrath207/$package:latest
-  docker push ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest
-  docker push ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest
+	build_docker_image "${PACKAGE}" "Dockerfile" "latest"
+  build_docker_image "k8s-ephemeral-storage-grow-test" "DockerfileTestGrow" "latest"
+  build_docker_image "k8s-ephemeral-storage-shrink-test" "DockerfileTestShrink" "latest"
 fi
