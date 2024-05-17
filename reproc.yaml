@@ -1,0 +1,33 @@
+name: k8s-ephemeral-storage-metrics
+reprocVersion: 0.0.1
+Version: 0.0.1
+
+alias:
+  tag: test-tag
+  build_cmd: docker build -f ${file} . -t ${tag}
+
+
+images:
+  - name: k8s-ephemeral-storage-metrics
+    distro: distroless
+    distro_release: "distroless"
+    build:
+      command: ${build_cmd}
+      file: Dockerfile
+      path: git_root
+
+  - name: k8s-ephemeral-storage-metrics-grow-test
+    distro: ubuntu
+    distro_release: "22.04"
+    build:
+      command: ${build_cmd}
+      file: DockerfileTestGrow
+      path: git_root
+
+  - name: k8s-ephemeral-storage-metrics-shrink-test
+    distro: ubuntu
+    distro_release: "22.04"
+    build:
+      command: ${build_cmd}
+      file: DockerfileTestShrink
+      path: git_root
