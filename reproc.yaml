@@ -1,17 +1,15 @@
 name: k8s-ephemeral-storage-metrics
 reprocVersion: 0.0.1
-Version: 0.0.1
 
 alias:
-  tag: test-tag
-  build_cmd: docker build -f ${file} . -t ${tag}
+  # version what ever the git commit/tag is. This can not be changed.
+  build_cmd: docker build -f ${file} . -t ${version}
   download: make download
 
 hooks:
   pre:
     - name: Download and setup builder assets
       command: ${download}
-
 
 images:
   - name: k8s-ephemeral-storage-metrics
