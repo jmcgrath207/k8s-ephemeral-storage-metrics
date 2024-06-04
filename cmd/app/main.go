@@ -1,7 +1,6 @@
 package main
 
 import (
-  "os"
 	"context"
 	"encoding/json"
 	"flag"
@@ -17,6 +16,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 )
@@ -26,7 +26,7 @@ var (
 	sampleIntervalMill int64
 	Node               node.Node
 	Pod                pod.Collector
-	clientset *kubernetes.Clientset
+	clientset          *kubernetes.Clientset
 )
 
 func getMonitoredNamespaces(clientset *kubernetes.Clientset) ([]string, error) {
@@ -103,7 +103,6 @@ func setMetrics(clientset *kubernetes.Clientset, nodeName string, monitoredNames
 			continue
 		}
 
-
 		if !monitoredNamespaces[podNamespace] {
 			log.Debug().Msg(fmt.Sprintf("Skipping pod %s/%s as it does not meet label requirements", podName, podNamespace))
 			continue
@@ -113,7 +112,8 @@ func setMetrics(clientset *kubernetes.Clientset, nodeName string, monitoredNames
 		Pod.SetMetrics(podName, podNamespace, nodeName, usedBytes, availableBytes, capacityBytes, p.Volumes)
 	}
 
-	adjustTime := sampleIntervalMill - time.Now().Sub(start).Milliseconds()
+	//adjustTime := sampleIntervalMill - time.Now().Sub(start).Milliseconds()
+	adjustTime := sampleIntervalMill - time.Since(start).Milliseconds()
 	if adjustTime <= 0.0 {
 		log.Error().Msgf("Node %s: Polling Rate could not keep up. Adjust your Interval to a higher number than %d seconds", nodeName, sampleInterval)
 	}

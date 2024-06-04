@@ -139,12 +139,28 @@ func (n *Node) Watch() {
 	// Start the informer to begin watching for Node events
 	go sharedInformerFactory.Start(stopCh)
 
+	// Use a ticker for periodic actions
+	ticker := time.NewTicker(time.Duration(n.sampleInterval) * time.Second)
+	defer ticker.Stop()
+
 	for {
-		time.Sleep(time.Duration(n.sampleInterval) * time.Second)
 		select {
+		case <-ticker.C:
+			// Perform periodic tasks here, if any
+
 		case <-stopCh:
 			log.Error().Msg("Watcher NodeWatch stopped.")
 			os.Exit(1)
 		}
 	}
+	/*
+		for {
+			time.Sleep(time.Duration(n.sampleInterval) * time.Second)
+			select {
+			case <-stopCh:
+				log.Error().Msg("Watcher NodeWatch stopped.")
+				os.Exit(1)
+			}
+		}
+	*/
 }

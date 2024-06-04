@@ -90,15 +90,28 @@ func (cr Collector) podWatch() {
 	// Start the informer to begin watching for Pod events
 	go sharedInformerFactory.Start(stopCh)
 
+	ticker := time.NewTicker(time.Duration(cr.sampleInterval) * time.Second)
+	defer ticker.Stop()
+
 	for {
-		time.Sleep(time.Duration(cr.sampleInterval) * time.Second)
 		select {
+		case <-ticker.C:
+			// Periodic task placeholder (if any)
 		case <-stopCh:
 			log.Error().Msg("Watcher podWatch stopped.")
 			os.Exit(1)
 		}
 	}
-
+	/*
+		for {
+			time.Sleep(time.Duration(cr.sampleInterval) * time.Second)
+			select {
+			case <-stopCh:
+				log.Error().Msg("Watcher podWatch stopped.")
+				os.Exit(1)
+			}
+		}
+	*/
 }
 
 // Collector for container data
