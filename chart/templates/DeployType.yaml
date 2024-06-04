@@ -78,6 +78,10 @@ spec:
               value: "{{ .Values.max_node_concurrency }}"
             - name: LOG_LEVEL
               value: "{{ .Values.log_level }}"
+              {{- if .Values.labelSelector }}
+            - name: EPHEMERAL_STORAGE_LABEL
+              value: "{{ .Values.labelSelector }}"
+              {{- end }}
               {{- if .Values.metrics.ephemeral_storage_pod_usage }}
             - name: EPHEMERAL_STORAGE_POD_USAGE
               value: "{{ .Values.metrics.ephemeral_storage_pod_usage }}"
