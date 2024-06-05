@@ -4,7 +4,7 @@ on:
   push:
     branches: [ add/expose-metrics-only-specific-ns ]
   release:
-    types: [published]
+    types: [published, created]
 
 
 jobs:
