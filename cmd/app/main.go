@@ -16,7 +16,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 )
@@ -26,26 +25,34 @@ var (
 	sampleIntervalMill int64
 	Node               node.Node
 	Pod                pod.Collector
-	clientset          *kubernetes.Clientset
 )
 
 func getMonitoredNamespaces(clientset *kubernetes.Clientset) ([]string, error) {
-	labelSelector := os.Getenv("EPHEMERAL_STORAGE_LABEL")
-
-	if labelSelector == "" {
-		labelSelector = "ephemeral-storage-monitoring=enabled"
-	}
-
-	namespaceList, err := clientset.CoreV1().Namespaces().List(context.TODO(), v1.ListOptions{
-		LabelSelector: labelSelector,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	var namespaces []string
-	for _, ns := range namespaceList.Items {
-		namespaces = append(namespaces, ns.Name)
+
+	if dev.GetEnv("ENABLE_SPECIFIC_NAMESPACE_MONITORING", "false") == "true" {
+    log.Info().Msg("ENABLE_SPECIFIC_NAMESPACE_MONITORING set to true")
+		labelSelector := dev.GetEnv("EPHEMERAL_STORAGE_LABEL", "ephemeral-storage-monitoring=enabled")
+
+		namespaceList, err := dev.Clientset.CoreV1().Namespaces().List(context.TODO(), v1.ListOptions{
+			LabelSelector: labelSelector,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, ns := range namespaceList.Items {
+			namespaces = append(namespaces, ns.Name)
+		}
+	} else {
+		// If specific namespace monitoring is not enabled, fetch all namespaces
+		allNamespaces, err := dev.Clientset.CoreV1().Namespaces().List(context.TODO(), v1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for _, ns := range allNamespaces.Items {
+			namespaces = append(namespaces, ns.Name)
+		}
 	}
 	return namespaces, nil
 }
@@ -70,7 +77,7 @@ type ephemeralStorageMetrics struct {
 }
 
 func setMetrics(clientset *kubernetes.Clientset, nodeName string, monitoredNamespaces map[string]bool) {
-	if clientset == nil {
+	if dev.Clientset == nil {
 		log.Error().Msg("Kubernetes clientset is nil")
 		return
 	}
@@ -129,7 +136,7 @@ func getMetrics(clientset *kubernetes.Clientset) {
 	Pod.WaitGroup.Wait()
 
 	p, _ := ants.NewPoolWithFunc(Node.MaxNodeQueryConcurrency, func(node interface{}) {
-		monitoredNamespacesList, err := getMonitoredNamespaces(clientset)
+		monitoredNamespacesList, err := getMonitoredNamespaces(dev.Clientset)
 		if err != nil {
 			log.Error().Msgf("Failed to fetch monitored namespaces: %v", err)
 			return
@@ -139,7 +146,7 @@ func getMetrics(clientset *kubernetes.Clientset) {
 		for _, ns := range monitoredNamespacesList {
 			monitoredNamespaces[ns] = true
 		}
-		setMetrics(clientset, node.(string), monitoredNamespaces)
+		setMetrics(dev.Clientset, node.(string), monitoredNamespaces)
 	}, ants.WithExpiryDuration(time.Duration(sampleInterval)*time.Second))
 
 	defer p.Release()
@@ -177,7 +184,7 @@ func main() {
 
 	config.QPS = 20.0
 	config.Burst = 40
-	clientset, err = kubernetes.NewForConfig(config)
+	dev.Clientset, err = kubernetes.NewForConfig(config)
 	if err != nil {
 		log.Error().Msgf("Failed to create Kubernetes clientset: %v", err)
 		return
@@ -194,7 +201,7 @@ func main() {
 		Pod.WaitGroup.Wait()
 
 		p, _ := ants.NewPoolWithFunc(Node.MaxNodeQueryConcurrency, func(node interface{}) {
-			monitoredNamespacesList, err := getMonitoredNamespaces(clientset)
+			monitoredNamespacesList, err := getMonitoredNamespaces(dev.Clientset)
 			if err != nil {
 				log.Error().Msgf("Failed to fetch monitored namespaces: %v", err)
 				return
@@ -203,7 +210,7 @@ func main() {
 			for _, ns := range monitoredNamespacesList {
 				monitoredNamespaces[ns] = true
 			}
-			setMetrics(clientset, node.(string), monitoredNamespaces)
+			setMetrics(dev.Clientset, node.(string), monitoredNamespaces)
 		}, ants.WithExpiryDuration(time.Duration(sampleInterval)*time.Second))
 
 		defer p.Release()
@@ -219,7 +226,7 @@ func main() {
 		}
 	}()
 
-	go getMetrics(clientset)
+	go getMetrics(dev.Clientset)
 
 	http.Handle("/metrics", promhttp.Handler())
 	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s", port))
