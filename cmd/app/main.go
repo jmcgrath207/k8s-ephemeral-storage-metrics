@@ -31,7 +31,6 @@ func getMonitoredNamespaces(clientset *kubernetes.Clientset) ([]string, error) {
 	var namespaces []string
 
 	if dev.GetEnv("ENABLE_SPECIFIC_NAMESPACE_MONITORING", "false") == "true" {
-    log.Info().Msg("ENABLE_SPECIFIC_NAMESPACE_MONITORING set to true")
 		labelSelector := dev.GetEnv("EPHEMERAL_STORAGE_LABEL", "ephemeral-storage-monitoring=enabled")
 
 		namespaceList, err := dev.Clientset.CoreV1().Namespaces().List(context.TODO(), v1.ListOptions{
@@ -195,37 +194,6 @@ func main() {
 	}
 	go Node.Get()
 	go Node.Watch()
-
-	go func() {
-		Node.WaitGroup.Wait()
-		Pod.WaitGroup.Wait()
-
-		p, _ := ants.NewPoolWithFunc(Node.MaxNodeQueryConcurrency, func(node interface{}) {
-			monitoredNamespacesList, err := getMonitoredNamespaces(dev.Clientset)
-			if err != nil {
-				log.Error().Msgf("Failed to fetch monitored namespaces: %v", err)
-				return
-			}
-			monitoredNamespaces := make(map[string]bool)
-			for _, ns := range monitoredNamespacesList {
-				monitoredNamespaces[ns] = true
-			}
-			setMetrics(dev.Clientset, node.(string), monitoredNamespaces)
-		}, ants.WithExpiryDuration(time.Duration(sampleInterval)*time.Second))
-
-		defer p.Release()
-
-		for {
-			nodeSlice := Node.Set.ToSlice()
-
-			for _, node := range nodeSlice {
-				_ = p.Invoke(node)
-			}
-
-			time.Sleep(time.Duration(sampleInterval) * time.Second)
-		}
-	}()
-
 	go getMetrics(dev.Clientset)
 
 	http.Handle("/metrics", promhttp.Handler())
