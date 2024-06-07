@@ -82,6 +82,10 @@ spec:
             - name: EPHEMERAL_STORAGE_LABEL
               value: "{{ .Values.labelSelector }}"
               {{- end }}
+              {{ if .Values.namespaceMonitoring }}
+            - name: ENABLE_SPECIFIC_NAMESPACE_MONITORING
+              value: "{{ .Values.namespaceMonitoring }}"
+              {{- end }}
               {{- if .Values.metrics.ephemeral_storage_pod_usage }}
             - name: EPHEMERAL_STORAGE_POD_USAGE
               value: "{{ .Values.metrics.ephemeral_storage_pod_usage }}"
