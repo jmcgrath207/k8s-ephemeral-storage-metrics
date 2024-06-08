@@ -117,7 +117,6 @@ func setMetrics(clientset *kubernetes.Clientset, nodeName string, monitoredNames
 		Pod.SetMetrics(podName, podNamespace, nodeName, usedBytes, availableBytes, capacityBytes, p.Volumes)
 	}
 
-	//adjustTime := sampleIntervalMill - time.Now().Sub(start).Milliseconds()
 	adjustTime := sampleIntervalMill - time.Since(start).Milliseconds()
 	if adjustTime <= 0.0 {
 		log.Error().Msgf("Node %s: Polling Rate could not keep up. Adjust your Interval to a higher number than %d seconds", nodeName, sampleInterval)

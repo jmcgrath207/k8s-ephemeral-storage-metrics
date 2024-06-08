@@ -102,16 +102,6 @@ func (cr Collector) podWatch() {
 			os.Exit(1)
 		}
 	}
-	/*
-		for {
-			time.Sleep(time.Duration(cr.sampleInterval) * time.Second)
-			select {
-			case <-stopCh:
-				log.Error().Msg("Watcher podWatch stopped.")
-				os.Exit(1)
-			}
-		}
-	*/
 }
 
 // Collector for container data
