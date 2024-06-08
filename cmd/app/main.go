@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"net/http"
 	"strconv"
 	"time"
@@ -172,6 +173,21 @@ func main() {
 	Node = node.NewCollector(sampleInterval)
 	Pod = pod.NewCollector(sampleInterval)
 
+	var err error
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		log.Error().Msgf("Failed to create in-cluster config: %v", err)
+		return
+	}
+
+	config.QPS = 20.0
+	config.Burst = 40
+	dev.Clientset, err = kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Error().Msgf("Failed to create Kubernetes clientset: %v", err)
+		return
+	}
+
 	if pprofEnabled {
 		go dev.EnablePprof()
 	}
@@ -181,7 +197,7 @@ func main() {
 
 	http.Handle("/metrics", promhttp.Handler())
 	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s", port))
-	err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
+	err = http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 	if err != nil {
 		log.Error().Msg(fmt.Sprintf("Listener Failed : %s\n", err.Error()))
 		panic(err.Error())
