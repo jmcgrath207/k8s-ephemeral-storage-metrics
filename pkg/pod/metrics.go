@@ -2,6 +2,8 @@ package pod
 
 import (
 	"fmt"
+	"math"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 	v1 "k8s.io/api/core/v1"
@@ -166,9 +168,11 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 				if c.limit != 0 {
 					// Use Limit from Container
 					setValue = (usedBytes / c.limit) * 100.0
+				} else if capacityBytes > 0. {
+					// Default to Node Used Ephemeral Storage
+					setValue = math.Max(capacityBytes-availableBytes, 0.) * 100.0 / capacityBytes
 				} else {
-					// Default to Node Available Ephemeral Storage
-					setValue = (availableBytes / capacityBytes) * 100.0
+					setValue = math.NaN()
 				}
 				containerPercentageLimitsVec.With(labels).Set(setValue)
 			}
