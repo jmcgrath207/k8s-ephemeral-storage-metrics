@@ -2,6 +2,8 @@ package node
 
 import (
 	"fmt"
+	"math"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 )
@@ -79,7 +81,10 @@ func (n *Node) SetMetrics(nodeName string, availableBytes float64, capacityBytes
 	}
 
 	if n.nodePercentage {
-		setValue := (availableBytes / capacityBytes) * 100.0
+		setValue := math.NaN()
+		if capacityBytes > 0. {
+			setValue = math.Max(capacityBytes-availableBytes, 0.) * 100.0 / capacityBytes
+		}
 		nodePercentageGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(setValue)
 		log.Debug().Msg(fmt.Sprintf("Node: %s percentage used: %f", nodeName, setValue))
 	}
