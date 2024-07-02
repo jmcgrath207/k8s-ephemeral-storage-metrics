@@ -76,6 +76,8 @@ func (cr Collector) createMetrics() {
 			"node_name",
 			// Name of container
 			"container",
+			// Source of the limit (either "container" for pod.spec.containers.resources.limits or "node")
+			"source",
 		},
 	)
 
@@ -164,10 +166,11 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 		if okPodResult {
 			for _, c := range podResult.containers {
 				labels := prometheus.Labels{"pod_namespace": podNamespace,
-					"pod_name": podName, "node_name": nodeName, "container": c.name}
+					"pod_name": podName, "node_name": nodeName, "container": c.name, "source": "node"}
 				if c.limit != 0 {
 					// Use Limit from Container
 					setValue = (usedBytes / c.limit) * 100.0
+					labels["source"] = "container"
 				} else if capacityBytes > 0. {
 					// Default to Node Used Ephemeral Storage
 					setValue = math.Max(capacityBytes-availableBytes, 0.) * 100.0 / capacityBytes
