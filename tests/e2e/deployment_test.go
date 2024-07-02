@@ -2,8 +2,6 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	"io"
 	"net/http"
 	"os/exec"
@@ -12,6 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 )
 
 var httpClient *http.Client
@@ -120,9 +121,10 @@ func checkPrometheus(checkSlice []string, inverse bool) {
 
 func WatchContainerPercentage() {
 	status := 0
-	re := regexp.MustCompile(`ephemeral_storage_container_limit_percentage{container="grow-test",node_name="minikube".+,pod_namespace="ephemeral-metrics"}\s+(.+)`)
+	re := regexp.MustCompile(`ephemeral_storage_container_limit_percentage{container="grow-test",node_name="minikube".+,pod_namespace="ephemeral-metrics",source="container"}\s+(.+)`)
 	output := requestPrometheusString()
 	match := re.FindAllStringSubmatch(output, -1)
+	gomega.Expect(match).ShouldNot(gomega.BeEmpty())
 	floatValue, _ := strconv.ParseFloat(match[0][1], 64)
 	if floatValue < 100.0 {
 		status = 1
