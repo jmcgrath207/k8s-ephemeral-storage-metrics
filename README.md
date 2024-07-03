@@ -32,7 +32,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | dev | object | `{"enabled":false,"grow":{"image":"ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest","imagePullPolicy":"IfNotPresent"},"shrink":{"image":"ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest","imagePullPolicy":"IfNotPresent"}}` | For local development or testing that will deploy grow and shrink pods and debug service |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.10.2"` |  |
+| image.tag | string | `"1.11.0"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | kubelet | object | `{"insecure":false,"readOnlyPort":0,"scrape":false}` | Scrape metrics through kubelet instead of kube api |
 | log_level | string | `"info"` |  |
