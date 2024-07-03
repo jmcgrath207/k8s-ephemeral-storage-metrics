@@ -42,7 +42,7 @@ minikube_scale_up:
 minikube_scale_down:
 	minikube node delete m02
 
-init: fmt vet
+init: fmt vet crane
 
 deploy_debug: init
 	ENV='debug' ./scripts/deploy.sh
@@ -53,22 +53,22 @@ deploy_e2e_debug: init
 deploy_local: init
 	./scripts/deploy.sh
 
-deploy_observability:
+deploy_observability: init
 	ENV='observability' ./scripts/deploy.sh
 
 deploy_test: init
 	ENV='test' ./scripts/deploy.sh
 
-deploy_e2e: init test-helm-render ginkgo crane minikube_new
+deploy_e2e: init test-helm-render ginkgo minikube_new
 	ENV='e2e' ./scripts/deploy.sh
 
 deploy_e2e_dirty: init test-helm-render
 	ENV='e2e' ./scripts/deploy.sh
 
-deploy_many_pods:
+deploy_many_pods: init
 	helm install many-pods ./tests/charts/many-pods -n many-pods --create-namespace
 
-destroy_many_pods:
+destroy_many_pods: init
 	helm delete -n many-pods many-pods
 
 release-docker:

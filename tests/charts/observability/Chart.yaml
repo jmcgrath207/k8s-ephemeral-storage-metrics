@@ -15,6 +15,6 @@ dependencies:
     repository: https://grafana.github.io/helm-charts
     condition: pyroscope.enabled
   - name: kube-prometheus-stack
-    version: 46.8.0
+    version: 56.13.1
     repository: https://prometheus-community.github.io/helm-charts
     condition: kube-prometheus-stack.enabled
