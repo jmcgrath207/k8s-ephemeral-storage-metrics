@@ -1,0 +1,124 @@
+{{- if .Values.prometheus.enable | default false }}
+{{- $rules := default (dict) .Values.prometheus.rules }}
+{{- if $rules.enable | default false }}
+{{- with $predictFilledHours := $rules.predictFilledHours | default 12 }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: k8s-ephemeral-storage-container-limits
+  namespace: "{{ $.Release.Namespace }}"
+spec:
+  groups:
+    - name: k8s.rules.container_resource
+      rules:
+        - alert: ContainerEphemeralStorageUsageAtLimit
+          annotations:
+            description: >-
+              {{ `Ephemeral storage usage of pod/container {{ $labels.pod_name
+              }}/{{ $labels.exported_container }} in Namespace {{
+              $labels.pod_namespace }} on Node {{ $labels.node_name }} {{ with
+              $labels.cluster -}} on Cluster {{ . }} {{- end }} is at {{ $value
+              }}% of the limit.` }}
+            summary: Container ephemeral storage usage is at the limit.
+          expr: |-2
+            ( max by (node_name, pod_namespace, pod_name, exported_container)
+                     (avg_over_time(ephemeral_storage_container_limit_percentage{source="container"}[5m]))
+            > 85.0)
+            # ignore pods that haven't been running for some time (e.g. completed jobs)
+            unless on (pod_namespace, pod_name)
+                      ( (label_replace(label_replace(
+                           max_over_time(kube_pod_status_phase{phase="Running"}[2m]),
+                           "pod_namespace", "$1", "namespace", "(.*)"),
+                           "pod_name", "$1", "pod", "(.*)"))
+                      == 0)
+          for: 1m
+          labels:
+            severity: warning
+
+        - alert: ContainerEphemeralStorageUsageReachingLimit
+          annotations:
+            description: >-
+              {{ `Based on recent sampling, the ephemeral storage limit of
+              pod/container {{ $labels.pod_name }}/{{
+              $labels.exported_container }} in Namespace {{
+              $labels.pod_namespace }} on Node {{ $labels.node_name }} {{
+              with $labels.cluster -}} on Cluster {{ . }} {{- end }} is
+              expected to be reached within ` }}{{ $predictFilledHours }}
+              {{ ` hours. Currently, {{ $value }}% is used.` }}
+            summary: Container ephemeral storage usage is reaching the limit.
+          expr: |-2
+            (   ( max by (node_name, pod_namespace, pod_name, exported_container)
+                         (ephemeral_storage_container_limit_percentage{source="container"})
+                > 33.3)
+            and on (pod_namespace, pod_name, exported_container)
+                   ( predict_linear( ephemeral_storage_container_limit_percentage{source="container"}[2h]
+                                   , {{ $predictFilledHours | float64 }}*3600)
+                   > 99.0)
+            )
+            # ignore pods that haven't been running for enough time
+            unless on (pod_namespace, pod_name)
+                      ( (label_replace(label_replace(
+                           min_over_time(kube_pod_status_phase{phase="Running"}[10m]),
+                           "pod_namespace", "$1", "namespace", "(.*)"),
+                           "pod_name", "$1", "pod", "(.*)"))
+                      == 0)
+          for: 15m
+          labels:
+            severity: warning
+
+        - alert: EphemeralStorageVolumeFilledUp
+          annotations:
+            description: >-
+              {{ `Ephemeral storage volume "{{ $labels.volume_name }}" of pod
+              {{ $labels.pod_name }} in Namespace {{ $labels.pod_namespace }}
+              {{ with $labels.cluster -}} on Cluster {{ . }} {{- end }} is
+              filled from {{ $value }}%.` }}
+            summary: Ephemeral storage volume is filled up.
+          expr: |-2
+            ( max by (pod_namespace, pod_name, volume_name)
+                     (avg_over_time(ephemeral_storage_container_volume_limit_percentage[5m]))
+            > 85.0)
+            # ignore pods that haven't been running for some time (e.g. completed jobs)
+            unless on (pod_namespace, pod_name)
+                      ( (label_replace(label_replace(
+                           max_over_time(kube_pod_status_phase{phase="Running"}[2m]),
+                           "pod_namespace", "$1", "namespace", "(.*)"),
+                           "pod_name", "$1", "pod", "(.*)"))
+                      == 0)
+          for: 1m
+          labels:
+            severity: warning
+
+        - alert: EphemeralStorageVolumeFillingUp
+          annotations:
+            description: >-
+              {{ `Based on recent sampling, the ephemeral storage volume "{{
+              $labels.volume_name }}" of pod {{ $labels.pod_name }} in
+              Namespace {{ $labels.pod_namespace }} {{ with $labels.cluster
+              -}} on Cluster {{ . }} {{- end }} is expected to be filled up
+              within ` }}{{ $predictFilledHours }}{{ ` hours. Currently, {{
+              $value }}% is used.` }}
+            summary: Ephemeral storage volume is filling up.
+          expr: |-2
+            (   ( max by (pod_namespace, pod_name, volume_name)
+                         (ephemeral_storage_container_volume_limit_percentage)
+                > 33.3)
+            and ( max by (pod_namespace, pod_name, volume_name)
+                         (predict_linear( ephemeral_storage_container_volume_limit_percentage[2h]
+                                        , {{ $predictFilledHours | float64 }}*3600))
+                > 99)
+            )
+            # ignore pods that haven't been running for enough time
+            unless on (pod_namespace, pod_name)
+                      ( (label_replace(label_replace(
+                            min_over_time(kube_pod_status_phase{phase="Running"}[10m]),
+                           "pod_namespace", "$1", "namespace", "(.*)"),
+                           "pod_name", "$1", "pod", "(.*)"))
+                      == 0)
+          for: 15m
+          labels:
+            severity: warning
+{{- end }}
+{{- end }}
+{{- end }}
