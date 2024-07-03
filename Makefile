@@ -3,7 +3,7 @@
 
 GITROOT ?= $(shell pwd)
 DEPLOYMENT_NAME = ephemeral-metrics
-K8S_VERSION ?= 1.27.0
+K8S_VERSION ?= 1.28.0
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
@@ -53,7 +53,7 @@ deploy_e2e_debug: init
 deploy_local: init
 	./scripts/deploy.sh
 
-deploy_observability: init
+deploy_observability: crane
 	ENV='observability' ./scripts/deploy.sh
 
 deploy_test: init
@@ -65,10 +65,10 @@ deploy_e2e: init test-helm-render ginkgo minikube_new
 deploy_e2e_dirty: init test-helm-render
 	ENV='e2e' ./scripts/deploy.sh
 
-deploy_many_pods: init
+deploy_many_pods: crane
 	helm install many-pods ./tests/charts/many-pods -n many-pods --create-namespace
 
-destroy_many_pods: init
+destroy_many_pods: crane
 	helm delete -n many-pods many-pods
 
 release-docker:

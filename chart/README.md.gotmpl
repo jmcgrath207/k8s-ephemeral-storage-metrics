@@ -12,23 +12,29 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 
 ### Start minikube
 ```bash
-make new_minikube
+sudo make minikube_new
 ```
 
 ### Run locally
 ```bash
-make deploy_local
+sudo make deploy_local
+```
+
+### Run Observability chart (tests/charts/observability)
+##### Deploys chart with kube-prometheus-stack, grafana-operator, pyroscope
+```bash
+sudo make deploy_observability
 ```
 
 ### Run locally with Delve Debug
 ```bash
-make deploy_debug
+sudo make deploy_debug
 ```
 Then connect to `localhost:30002` with [delve](https://github.com/go-delve/delve) or your IDE.
 
 ### Run e2e Test
 ```bash
-make deploy_e2e
+sudo make deploy_e2e
 ```
 
 ### Debug e2e
