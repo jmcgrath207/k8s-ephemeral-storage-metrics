@@ -1,5 +1,5 @@
 {{- if .Values.prometheus.enable | default false }}
-{{- $rules := default (dict) .Values.prometheus.rules }}
+{{- with $rules := default (dict) .Values.prometheus.rules }}
 {{- if $rules.enable | default false }}
 {{- with $predictFilledHours := $rules.predictFilledHours | default 12 }}
 ---
@@ -119,6 +119,7 @@ spec:
           for: 15m
           labels:
             severity: warning
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
