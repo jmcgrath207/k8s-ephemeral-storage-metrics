@@ -102,7 +102,7 @@ function main() {
     "dev.grow.image=${internal_registry}/${grow_repo_image}"
     "metrics.adjusted_polling_rate=true"
     "pprof=true"
-    "prometheus.rules.enable=false"
+    "prometheus.rules.enable=true"
   )
 
   if [[ $ENV =~ "e2e" ]]; then

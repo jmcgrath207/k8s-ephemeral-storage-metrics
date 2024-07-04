@@ -4,6 +4,7 @@
 GITROOT ?= $(shell pwd)
 DEPLOYMENT_NAME = ephemeral-metrics
 K8S_VERSION ?= 1.27.0
+PROMETHEUS_OPERATOR_VERSION ?= v0.65.1
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
@@ -34,6 +35,7 @@ test-helm-render:
 	helm template ./chart -f ./chart/test-values.yaml 1> /dev/null
 
 minikube_new:
+	export PROMETHEUS_OPERATOR_VERSION=$(PROMETHEUS_OPERATOR_VERSION)
 	./scripts/create-minikube.sh
 
 minikube_scale_up:
