@@ -34,6 +34,8 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | pprof | bool | `false` | Enable Pprof |
 | prometheus.enable | bool | `true` |  |
 | prometheus.release | string | `"kube-prometheus-stack"` |  |
+| prometheus.rules.enable | bool | `false` | Create PrometheusRules firing alerts when out of ephemeral storage |
+| prometheus.rules.predictFilledHours | int | `12` | How many hours in the future to predict filling up of a volume |
 | serviceMonitor | object | `{"additionalLabels":{},"metricRelabelings":[],"podTargetLabels":[],"relabelings":[],"targetLabels":[]}` | Configure the Service Monitor |
 | serviceMonitor.additionalLabels | object | `{}` | Add labels to the ServiceMonitor.Spec |
 | serviceMonitor.metricRelabelings | list | `[]` | Set metricRelabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig |
@@ -41,6 +43,35 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | serviceMonitor.relabelings | list | `[]` | Set relabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig |
 | serviceMonitor.targetLabels | list | `[]` | Set targetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec |
 | tolerations | list | `[]` |  |
+
+## Prometheus alert rules
+
+To prevent from multiple kind of alerts being fired for a single container or
+emptyDir volume when both `prometheus.enable` and `prometheus.rules.enable` are
+on, add the following [inhibition
+rules](https://prometheus.io/docs/alerting/latest/configuration/#inhibition-related-settings)
+to your Alert Manager config:
+
+```yaml
+- source_matchers:
+    - alertname="EphemeralStorageVolumeFilledUp"
+  target_matchers:
+    - severity="warning"
+    - alertname="EphemeralStorageVolumeFillingUp"
+  equal:
+    - pod_namespace
+    - pod_name
+    - volume_name
+- source_matchers:
+    - alertname="ContainerEphemeralStorageUsageAtLimit"
+  target_matchers:
+    - severity="warning"
+    - alertname="ContainerEphemeralStorageUsageReachingLimit"
+  equal:
+    - pod_namespace
+    - pod_name
+    - exported_container
+```
 
 ## Contribute
 

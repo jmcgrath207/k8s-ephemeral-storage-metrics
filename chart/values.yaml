@@ -53,8 +53,9 @@ prometheus:
   enable: true
   release: kube-prometheus-stack
   rules:
-    enable: true
-    # how many hours in the future to predict filling up of a volume
+    # -- Create PrometheusRules firing alerts when out of ephemeral storage
+    enable: false
+    # -- How many hours in the future to predict filling up of a volume
     predictFilledHours: 12
 
 # -- Enable Pprof

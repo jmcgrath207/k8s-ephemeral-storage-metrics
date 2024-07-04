@@ -1,4 +1,4 @@
-{{- if .Values.prometheus.enable | default false }}
+{{- if .Values.prometheus.enable | default true }}
 {{- with $rules := default (dict) .Values.prometheus.rules }}
 {{- if $rules.enable | default false }}
 {{- with $predictFilledHours := $rules.predictFilledHours | default 12 }}

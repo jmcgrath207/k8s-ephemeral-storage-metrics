@@ -8,6 +8,35 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 
 {{ template "chart.valuesSection" . }}
 
+## Prometheus alert rules
+
+To prevent from multiple kind of alerts being fired for a single container or
+emptyDir volume when both `prometheus.enable` and `prometheus.rules.enable` are
+on, add the following [inhibition
+rules](https://prometheus.io/docs/alerting/latest/configuration/#inhibition-related-settings)
+to your Alert Manager config:
+
+```yaml
+- source_matchers:
+    - alertname="EphemeralStorageVolumeFilledUp"
+  target_matchers:
+    - severity="warning"
+    - alertname="EphemeralStorageVolumeFillingUp"
+  equal:
+    - pod_namespace
+    - pod_name
+    - volume_name
+- source_matchers:
+    - alertname="ContainerEphemeralStorageUsageAtLimit"
+  target_matchers:
+    - severity="warning"
+    - alertname="ContainerEphemeralStorageUsageReachingLimit"
+  equal:
+    - pod_namespace
+    - pod_name
+    - exported_container
+```
+
 ## Contribute
 
 ### Start minikube
