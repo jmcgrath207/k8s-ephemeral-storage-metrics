@@ -52,6 +52,11 @@ max_node_concurrency: 10
 prometheus:
   enable: true
   release: kube-prometheus-stack
+  rules:
+    # -- Create PrometheusRules firing alerts when out of ephemeral storage
+    enable: false
+    # -- How many hours in the future to predict filling up of a volume
+    predictFilledHours: 12
 
 # -- Enable Pprof
 pprof: false
