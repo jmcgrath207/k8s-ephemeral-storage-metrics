@@ -118,7 +118,6 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 	// 		kubectl get --raw "/api/v1/nodes/ephemeral-metrics-cluster-worker/proxy/stats/summary"
 	// 		need to source it from the pod spec
 	// 		make issue upstream with CA advisor
-	// TODO: need to do a grow and shrink test for this.
 	if cr.containerVolumeUsage {
 		// TODO: what a mess...need to figure out a better way.
 		if okPodResult {
@@ -152,7 +151,13 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 									labels := prometheus.Labels{"pod_namespace": podNamespace,
 										"pod_name": podName, "node_name": nodeName, "container": c.name, "volume_name": v.Name,
 										"mount_path": edv.mountPath}
-									containerPercentageVolumeLimitsVec.With(labels).Set((float64(v.UsedBytes) / edv.sizeLimit) * 100.0)
+									// Convert used bytes to *bibyte since. Since the volume limit in the pod manifest is in *bibyte, but the
+									// Used bytes from the Kube API is not.
+									// multiply the digital storage value by 1.024
+									// https://stackoverflow.com/a/50805048/3263650
+									usedBiBytes := float64(v.UsedBytes) * 1.024
+									setValue = math.Min((usedBiBytes/edv.sizeLimit)*100.0, 100.0)
+									containerPercentageVolumeLimitsVec.With(labels).Set(setValue)
 								}
 							}
 						}
@@ -168,8 +173,13 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 				labels := prometheus.Labels{"pod_namespace": podNamespace,
 					"pod_name": podName, "node_name": nodeName, "container": c.name, "source": "node"}
 				if c.limit != 0 {
-					// Use Limit from Container
-					setValue = (usedBytes / c.limit) * 100.0
+					// Use limit if found.
+					// Convert used bytes to *bibyte since. Since the limit in the pod manifest is in *bibyte, but the
+					// Used bytes from the Kube API is not.
+					// multiply the digital storage value by 1.024
+					// https://stackoverflow.com/a/50805048/3263650
+					usedBiBytes := usedBytes * 1.024
+					setValue = math.Min((usedBiBytes/c.limit)*100.0, 100.0)
 					labels["source"] = "container"
 				} else if capacityBytes > 0. {
 					// Default to Node Used Ephemeral Storage

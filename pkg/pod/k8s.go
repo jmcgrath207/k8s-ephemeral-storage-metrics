@@ -141,6 +141,7 @@ func (cr Collector) getContainerData(c v1.Container, p v1.Pod) container {
 		for key, val := range c.Resources.Limits {
 			if key == matchKey {
 				setContainer.limit = val.AsApproximateFloat64()
+				break
 			}
 		}
 	}
