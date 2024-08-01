@@ -5,6 +5,7 @@ image:
 
 # -- Configure the Service Monitor
 serviceMonitor:
+   enable: true
    # -- Add labels to the ServiceMonitor.Spec
    additionalLabels: {}
    # -- Set relabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig
