@@ -1,7 +1,7 @@
 apiVersion: v2
 name: k8s-ephemeral-storage-metrics
-version: 1.11.2-rc01
-appVersion: 1.11.2-rc01
+version: 1.12.0
+appVersion: 1.12.0
 kubeVersion: ">=1.21.0-0"
 description: Ephemeral storage metrics for prometheus operator.
 home: https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics
