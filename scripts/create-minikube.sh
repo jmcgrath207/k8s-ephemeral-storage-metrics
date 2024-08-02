@@ -10,7 +10,9 @@ minikube start \
   --kubernetes-version="${K8S_VERSION}" \
   --insecure-registry "10.0.0.0/24" \
   --cpus=2 \
-  --memory=3900MB
+  --memory=3900MB \
+  --driver="${DRIVER}"
+
 minikube addons enable registry
 
 # Deploy Service Monitor and Prometheus Rule CRDs

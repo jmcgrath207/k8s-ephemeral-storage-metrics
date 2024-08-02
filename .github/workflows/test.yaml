@@ -27,4 +27,5 @@ jobs:
       - uses: azure/setup-helm@v3
       - name: Run e2e
         run: |
+          make minikube_new_docker
           make deploy_e2e
