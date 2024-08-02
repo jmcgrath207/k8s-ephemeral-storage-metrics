@@ -34,9 +34,13 @@ helm-docs:
 test-helm-render:
 	helm template ./chart -f ./chart/test-values.yaml 1> /dev/null
 
-minikube_new:
+minikube_new_virtualbox:
 	export PROMETHEUS_OPERATOR_VERSION=$(PROMETHEUS_OPERATOR_VERSION)
-	./scripts/create-minikube.sh
+	DRIVER='virtualbox' ./scripts/create-minikube.sh
+
+minikube_new_docker:
+	export PROMETHEUS_OPERATOR_VERSION=$(PROMETHEUS_OPERATOR_VERSION)
+	DRIVER='docker' ./scripts/create-minikube.sh
 
 minikube_scale_up:
 	minikube node add
@@ -61,7 +65,7 @@ deploy_observability:
 deploy_test: init
 	ENV='test' ./scripts/deploy.sh
 
-deploy_e2e: init test-helm-render ginkgo crane minikube_new
+deploy_e2e: init test-helm-render ginkgo crane
 	ENV='e2e' ./scripts/deploy.sh
 
 deploy_e2e_dirty: init test-helm-render
