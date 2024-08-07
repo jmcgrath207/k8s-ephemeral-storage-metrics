@@ -2,6 +2,7 @@ image:
   repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics
   tag: 1.12.0
   imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
 
 # -- Configure the Service Monitor
 serviceMonitor:
