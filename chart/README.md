@@ -11,12 +11,17 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
+| containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
+| containerSecurityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| containerSecurityContext.privileged | bool | `false` |  |
+| containerSecurityContext.readOnlyRootFilesystem | bool | `false` |  |
+| containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | deploy_type | string | `"Deployment"` | Set as Deployment for single controller to query all nodes or Daemonset |
 | dev | object | `{"enabled":false,"grow":{"image":"ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest","imagePullPolicy":"IfNotPresent"},"shrink":{"image":"ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest","imagePullPolicy":"IfNotPresent"}}` | For local development or testing that will deploy grow and shrink pods and debug service |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.imagePullSecrets | list | `[]` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.12.1"` |  |
+| image.tag | string | `"1.12.2"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | kubelet | object | `{"insecure":false,"readOnlyPort":0,"scrape":false}` | Scrape metrics through kubelet instead of kube api |
 | log_level | string | `"info"` |  |
@@ -32,6 +37,8 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | metrics.ephemeral_storage_pod_usage | bool | `true` | Current ephemeral byte usage of pod |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
+| podSecurityContext.runAsNonRoot | bool | `true` |  |
+| podSecurityContext.seccompProfile.type | string | `"RuntimeDefault"` |  |
 | pprof | bool | `false` | Enable Pprof |
 | prometheus.enable | bool | `true` |  |
 | prometheus.release | string | `"kube-prometheus-stack"` |  |
@@ -44,8 +51,6 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | serviceMonitor.relabelings | list | `[]` | Set relabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig |
 | serviceMonitor.targetLabels | list | `[]` | Set targetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec |
 | tolerations | list | `[]` |  |
-| podSecurityContext                       | Pod security context                                                                                                |`"runAsNonRoot:" "true", "seccompProfile:" "{type: RuntimeDefault}"`|
-| containerSecurityContext | Container security context |`"allowPrivilegeEscalation:" "false", "capabilities:" "drop:" "ALL", "privileged:" "false", "readOnlyRootFilesystem:" "false", "runAsNonRoot:" "true"`|
 
 ## Prometheus alert rules
 

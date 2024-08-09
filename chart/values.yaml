@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics
-  tag: 1.12.1
+  tag: 1.12.2
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
 
@@ -99,5 +99,3 @@ containerSecurityContext:
   privileged: false
   readOnlyRootFilesystem: false
   runAsNonRoot: true
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
