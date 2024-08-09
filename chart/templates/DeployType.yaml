@@ -34,6 +34,10 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: metrics
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
@@ -73,6 +77,10 @@ spec:
             periodSeconds: 10
             successThreshold: 1
             timeoutSeconds: 1
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           env:
             - name: DEPLOY_TYPE
               value: "{{ .Values.deploy_type }}"

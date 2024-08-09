@@ -44,6 +44,8 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | serviceMonitor.relabelings | list | `[]` | Set relabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig |
 | serviceMonitor.targetLabels | list | `[]` | Set targetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec |
 | tolerations | list | `[]` |  |
+| podSecurityContext                       | Pod security context                                                                                                |`"runAsNonRoot:" "true", "seccompProfile:" "{type: RuntimeDefault}"`|
+| containerSecurityContext | Container security context |`"allowPrivilegeEscalation:" "false", "capabilities:" "drop:" "ALL", "privileged:" "false", "readOnlyRootFilesystem:" "false", "runAsNonRoot:" "true"`|
 
 ## Prometheus alert rules
 

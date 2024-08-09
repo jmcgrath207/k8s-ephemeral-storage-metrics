@@ -81,3 +81,23 @@ nodeSelector: {}
 affinity: {}
 
 tolerations: []
+
+# Pod Security Context
+# ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container Security Context to be set on the controller component container
+# ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  privileged: false
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
