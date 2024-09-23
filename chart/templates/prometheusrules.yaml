@@ -34,7 +34,7 @@ spec:
                       == 0)
           for: 1m
           labels:
-            severity: warning
+            {{- $.Values.prometheus.rules.labels | toYaml | nindent 12 }}
 
         - alert: ContainerEphemeralStorageUsageReachingLimit
           annotations:
@@ -65,7 +65,7 @@ spec:
                       == 0)
           for: 15m
           labels:
-            severity: warning
+            {{- $.Values.prometheus.rules.labels | toYaml | nindent 12 }}
 
         - alert: EphemeralStorageVolumeFilledUp
           annotations:
@@ -88,7 +88,7 @@ spec:
                       == 0)
           for: 1m
           labels:
-            severity: warning
+            {{- $.Values.prometheus.rules.labels | toYaml | nindent 12 }}
 
         - alert: EphemeralStorageVolumeFillingUp
           annotations:
@@ -118,7 +118,7 @@ spec:
                       == 0)
           for: 15m
           labels:
-            severity: warning
+            {{- $.Values.prometheus.rules.labels | toYaml | nindent 12 }}
 {{- end }}
 {{- end }}
 {{- end }}
