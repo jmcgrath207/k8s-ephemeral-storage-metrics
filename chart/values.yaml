@@ -59,6 +59,9 @@ prometheus:
     enable: false
     # -- How many hours in the future to predict filling up of a volume
     predictFilledHours: 12
+    # -- What additional labels to set on alerts
+    labels:
+      severity: warning
 
 # -- Enable Pprof
 pprof: false
