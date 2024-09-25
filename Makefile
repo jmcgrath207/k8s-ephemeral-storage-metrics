@@ -3,7 +3,7 @@
 
 GITROOT ?= $(shell pwd)
 DEPLOYMENT_NAME = ephemeral-metrics
-K8S_VERSION ?= 1.27.0
+K8S_VERSION ?= 1.28.0
 PROMETHEUS_OPERATOR_VERSION ?= v0.65.1
 
 ## Location to install dependencies to
@@ -32,13 +32,6 @@ helm-docs:
 	cat "${GITROOT}/Header.md" "${GITROOT}/chart/README.md" > "${GITROOT}/README.md"
 
 test-helm-render:
-	helm template --kube-version 1.21.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
-	helm template --kube-version 1.22.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
-	helm template --kube-version 1.23.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
-	helm template --kube-version 1.24.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
-	helm template --kube-version 1.25.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
-	helm template --kube-version 1.26.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
-	helm template --kube-version 1.27.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
 	helm template --kube-version 1.28.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
 	helm template --kube-version 1.29.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
 	helm template --kube-version 1.30.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
