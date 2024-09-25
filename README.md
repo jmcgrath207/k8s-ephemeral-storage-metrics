@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Actions Status](https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/workflows/ci/badge.svg)](https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/actions)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/k8s-ephemeral-storage-metrics)](https://artifacthub.io/packages/helm/k8s-ephemeral-storage-metrics/k8s-ephemeral-storage-metrics)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/jmcgrath207/k8s-ephemeral-storage-metrics/total)
 
 A prometheus ephemeral storage metric exporter for pods, containers,
 nodes, and volumes.
@@ -38,7 +39,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.imagePullSecrets | list | `[]` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.12.3"` |  |
+| image.tag | string | `"1.13.0"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | kubelet | object | `{"insecure":false,"readOnlyPort":0,"scrape":false}` | Scrape metrics through kubelet instead of kube api |
 | log_level | string | `"info"` |  |
@@ -60,6 +61,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | prometheus.enable | bool | `true` |  |
 | prometheus.release | string | `"kube-prometheus-stack"` |  |
 | prometheus.rules.enable | bool | `false` | Create PrometheusRules firing alerts when out of ephemeral storage |
+| prometheus.rules.labels | object | `{"severity":"warning"}` | What additional labels to set on alerts |
 | prometheus.rules.predictFilledHours | int | `12` | How many hours in the future to predict filling up of a volume |
 | serviceMonitor | object | `{"additionalLabels":{},"enable":true,"metricRelabelings":[],"podTargetLabels":[],"relabelings":[],"targetLabels":[]}` | Configure the Service Monitor |
 | serviceMonitor.additionalLabels | object | `{}` | Add labels to the ServiceMonitor.Spec |
