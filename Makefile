@@ -3,7 +3,7 @@
 
 GITROOT ?= $(shell pwd)
 DEPLOYMENT_NAME = ephemeral-metrics
-K8S_VERSION ?= 1.27.0
+K8S_VERSION ?= 1.28.0
 PROMETHEUS_OPERATOR_VERSION ?= v0.65.1
 
 ## Location to install dependencies to
@@ -13,7 +13,7 @@ $(LOCALBIN):
 
 
 ginkgo:
-	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@v2.19.1
+	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@v2.20.2
 
 crane:
 	test -s $(LOCALBIN)/crane || GOBIN=$(LOCALBIN) go install github.com/google/go-containerregistry/cmd/crane@latest
@@ -32,7 +32,10 @@ helm-docs:
 	cat "${GITROOT}/Header.md" "${GITROOT}/chart/README.md" > "${GITROOT}/README.md"
 
 test-helm-render:
-	helm template ./chart -f ./chart/test-values.yaml 1> /dev/null
+	helm template --kube-version 1.28.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
+	helm template --kube-version 1.29.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
+	helm template --kube-version 1.30.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
+	helm template --kube-version 1.31.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
 
 minikube_new_virtualbox:
 	export PROMETHEUS_OPERATOR_VERSION=$(PROMETHEUS_OPERATOR_VERSION)
