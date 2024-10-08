@@ -26,6 +26,8 @@ kubelet:
 
 # -- Set metrics you want to enable
 metrics:
+  # -- Adjust the metric port as needed (default 9100)
+  port: 9100
   # -- Percentage of ephemeral storage used by a container in a pod
   ephemeral_storage_container_limit_percentage: true
   # -- Current ephemeral storage used by a container's volume in a pod
