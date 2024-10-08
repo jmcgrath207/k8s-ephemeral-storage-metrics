@@ -46,7 +46,7 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           ports:
             - name: metrics
-              containerPort: 9100
+              containerPort: {{ .Values.metrics.port  }}
               protocol: TCP
             {{ if .Values.dev.enabled }}
             - name: debug
@@ -62,7 +62,7 @@ spec:
             failureThreshold: 10
             httpGet:
               path: /metrics
-              port: 9100
+              port: {{ .Values.metrics.port  }}
               scheme: HTTP
             initialDelaySeconds: 10
             periodSeconds: 10
@@ -72,7 +72,7 @@ spec:
             failureThreshold: 10
             httpGet:
               path: /metrics
-              port: 9100
+              port: {{ .Values.metrics.port  }}
               scheme: HTTP
             periodSeconds: 10
             successThreshold: 1

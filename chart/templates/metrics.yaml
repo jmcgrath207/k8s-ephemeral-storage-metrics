@@ -58,7 +58,7 @@ spec:
   {{- include "chart.selectorLabels" . | nindent 6 }}
   ports:
     - name: metrics
-      port: 9100
+      port: {{ .Values.metrics.port  }}
       protocol: TCP
       targetPort: metrics
 {{ end }}
