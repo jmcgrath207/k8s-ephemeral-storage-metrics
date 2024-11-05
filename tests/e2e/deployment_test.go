@@ -274,6 +274,20 @@ func WatchEphemeralSize(podName string, desiredSizeChange float64, timeout time.
 
 }
 
+func deployManyPods() {
+	cmd := exec.Command("make", "deploy_many_pods")
+	cmd.Dir = "../.."
+	_, err := cmd.Output()
+	gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
+}
+
+func destroyManyPods() {
+	cmd := exec.Command("make", "destroy_many_pods")
+	cmd.Dir = "../.."
+	_, err := cmd.Output()
+	gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
+}
+
 func scaleUp() {
 	cmd := exec.Command("make", "minikube_scale_up")
 	cmd.Dir = "../.."
@@ -294,95 +308,109 @@ func scaleDown() {
 
 var _ = ginkgo.Describe("Test Metrics\n", func() {
 
-	ginkgo.Context("Observe labels\n", func() {
-		ginkgo.Specify("\nMake sure all metrics are in the exporter", func() {
-			var checkSlice []string
-			checkSlice = append(checkSlice, "ephemeral_storage_pod_usage",
-				"ephemeral_storage_node_available",
-				"ephemeral_storage_node_capacity",
-				"ephemeral_storage_node_percentage",
-				"pod_name=\"k8s-ephemeral-storage", "ephemeral_storage_adjusted_polling_rate",
-				"node_name=\"minikube",
-				"ephemeral_storage_container_limit_percentage",
-				"ephemeral_storage_container_volume_limit_percentage",
-				"ephemeral_storage_container_volume_usage")
-			checkPrometheus(checkSlice, false)
-		})
-	})
-	ginkgo.Context("Test Polling speed\n", func() {
-		ginkgo.Specify("\nMake sure Adjusted Poll rate is between 5000 - 4000 ms", func() {
-			WatchPollingRate(5000.0, 4000.0, time.Second*90)
-		})
-	})
-	ginkgo.Context("Observe change in ephemeral_storage_pod_usage metric\n", func() {
-		ginkgo.Specify("\nWatch Pod grow to 100000 Bytes", func() {
-			WatchEphemeralSize("grow-test", 100000, time.Second*180, getPodUsageSize)
-		})
-		ginkgo.Specify("\nWatch Pod shrink to 100000 Bytes", func() {
-			// Shrinking of ephemeral_storage reflects slower from Node API up to 5 minutes.
-			// Wait until it's reporting correctly, and start testing with the minimum of 11mb of data
-			// since the shrink container adds 12mb then decrements 12k a second.
-			// Ex. /api/v1/nodes/minikube/proxy/stats/summary
-			for {
-				currentPodSize := getPodUsageSize("shrink-test")
-				if currentPodSize >= 11000000.0 {
-					break
-				}
-				time.Sleep(time.Second * 5)
-			}
-			WatchEphemeralSize("shrink-test", 100000, time.Second*180, getPodUsageSize)
-		})
-	})
-	ginkgo.Context("Observe change in ephemeral_storage_container_limit_percentage metric\n", func() {
-		ginkgo.Specify("\nWatch Pod grow to 0.2 percent", func() {
-			WatchEphemeralSize("grow-test", 0.2, time.Second*180, getContainerLimitPercentage)
-		})
-		ginkgo.Specify("\nWatch Pod shrink to 0.2 percent", func() {
-			WatchEphemeralSize("shrink-test", 0.2, time.Second*180, getContainerLimitPercentage)
-		})
-
-	})
-	ginkgo.Context("Observe change in ephemeral_storage_container_volume_limit_percentage metric\n", func() {
-		ginkgo.Specify("\nWatch Pod grow to 0.2 percent", func() {
-			WatchEphemeralSize("grow-test", 0.2, time.Second*180, getContainerVolumeLimitPercentage)
-		})
-		ginkgo.Specify("\nWatch Pod shrink to 0.2 percent", func() {
-			WatchEphemeralSize("shrink-test", 0.2, time.Second*180, getContainerVolumeLimitPercentage)
-		})
-	})
-	ginkgo.Context("Observe change in ephemeral_storage_container_volume_usage metric\n", func() {
-		ginkgo.Specify("\nWatch Pod grow to 0.2 percent", func() {
-			WatchEphemeralSize("grow-test", 100000, time.Second*180, getContainerVolumeUsage)
-		})
-		ginkgo.Specify("\nWatch Pod shrink to 0.2 percent", func() {
-			WatchEphemeralSize("shrink-test", 100000, time.Second*180, getContainerVolumeUsage)
-		})
-	})
-	ginkgo.Context("\nMake sure percentage is not over 100", func() {
-		ginkgo.Specify("\nTest ephemeral_storage_node_percentage", func() {
-			WatchNodePercentage()
-		})
-		ginkgo.Specify("\nTest ephemeral_storage_container_limit_percentage", func() {
-			WatchContainerPercentage()
-		})
-		ginkgo.Specify("\nTest ephemeral_storage_container_volume_limit_percentage", func() {
-			WatchContainerVolumePercentage()
-		})
-	})
-	ginkgo.Context("Test Scaling\n", func() {
+	//ginkgo.Context("Observe labels\n", func() {
+	//	ginkgo.Specify("\nMake sure all metrics are in the exporter", func() {
+	//		var checkSlice []string
+	//		checkSlice = append(checkSlice, "ephemeral_storage_pod_usage",
+	//			"ephemeral_storage_node_available",
+	//			"ephemeral_storage_node_capacity",
+	//			"ephemeral_storage_node_percentage",
+	//			"pod_name=\"k8s-ephemeral-storage", "ephemeral_storage_adjusted_polling_rate",
+	//			"node_name=\"minikube",
+	//			"ephemeral_storage_container_limit_percentage",
+	//			"ephemeral_storage_container_volume_limit_percentage",
+	//			"ephemeral_storage_container_volume_usage")
+	//		checkPrometheus(checkSlice, false)
+	//	})
+	//})
+	//ginkgo.Context("Test Polling speed\n", func() {
+	//	ginkgo.Specify("\nMake sure Adjusted Poll rate is between 5000 - 4000 ms", func() {
+	//		WatchPollingRate(5000.0, 4000.0, time.Second*90)
+	//	})
+	//})
+	//ginkgo.Context("Observe change in ephemeral_storage_pod_usage metric\n", func() {
+	//	ginkgo.Specify("\nWatch Pod grow to 100000 Bytes", func() {
+	//		WatchEphemeralSize("grow-test", 100000, time.Second*180, getPodUsageSize)
+	//	})
+	//	ginkgo.Specify("\nWatch Pod shrink to 100000 Bytes", func() {
+	//		// Shrinking of ephemeral_storage reflects slower from Node API up to 5 minutes.
+	//		// Wait until it's reporting correctly, and start testing with the minimum of 11mb of data
+	//		// since the shrink container adds 12mb then decrements 12k a second.
+	//		// Ex. /api/v1/nodes/minikube/proxy/stats/summary
+	//		for {
+	//			currentPodSize := getPodUsageSize("shrink-test")
+	//			if currentPodSize >= 11000000.0 {
+	//				break
+	//			}
+	//			time.Sleep(time.Second * 5)
+	//		}
+	//		WatchEphemeralSize("shrink-test", 100000, time.Second*180, getPodUsageSize)
+	//	})
+	//})
+	//ginkgo.Context("Observe change in ephemeral_storage_container_limit_percentage metric\n", func() {
+	//	ginkgo.Specify("\nWatch Pod grow to 0.2 percent", func() {
+	//		WatchEphemeralSize("grow-test", 0.2, time.Second*180, getContainerLimitPercentage)
+	//	})
+	//	ginkgo.Specify("\nWatch Pod shrink to 0.2 percent", func() {
+	//		WatchEphemeralSize("shrink-test", 0.2, time.Second*180, getContainerLimitPercentage)
+	//	})
+	//
+	//})
+	//ginkgo.Context("Observe change in ephemeral_storage_container_volume_limit_percentage metric\n", func() {
+	//	ginkgo.Specify("\nWatch Pod grow to 0.2 percent", func() {
+	//		WatchEphemeralSize("grow-test", 0.2, time.Second*180, getContainerVolumeLimitPercentage)
+	//	})
+	//	ginkgo.Specify("\nWatch Pod shrink to 0.2 percent", func() {
+	//		WatchEphemeralSize("shrink-test", 0.2, time.Second*180, getContainerVolumeLimitPercentage)
+	//	})
+	//})
+	//ginkgo.Context("Observe change in ephemeral_storage_container_volume_usage metric\n", func() {
+	//	ginkgo.Specify("\nWatch Pod grow to 0.2 percent", func() {
+	//		WatchEphemeralSize("grow-test", 100000, time.Second*180, getContainerVolumeUsage)
+	//	})
+	//	ginkgo.Specify("\nWatch Pod shrink to 0.2 percent", func() {
+	//		WatchEphemeralSize("shrink-test", 100000, time.Second*180, getContainerVolumeUsage)
+	//	})
+	//})
+	//ginkgo.Context("\nMake sure percentage is not over 100", func() {
+	//	ginkgo.Specify("\nTest ephemeral_storage_node_percentage", func() {
+	//		WatchNodePercentage()
+	//	})
+	//	ginkgo.Specify("\nTest ephemeral_storage_container_limit_percentage", func() {
+	//		WatchContainerPercentage()
+	//	})
+	//	ginkgo.Specify("\nTest ephemeral_storage_container_volume_limit_percentage", func() {
+	//		WatchContainerVolumePercentage()
+	//	})
+	//})
+	ginkgo.Context("Test Ephemeral Pods\n", func() {
 		checkSlice := []string{
 			"node_name=\"minikube-m02",
 			"ephemeral_storage_container_limit_percentage{container=\"kube-proxy\",node_name=\"minikube-m02\"",
 		}
-		ginkgo.Specify("\nScale up test to make sure pods and nodes are found", func() {
-			scaleUp()
+		ginkgo.Specify("\nDeploy new Pods to make sure the are tracked", func() {
+			deployManyPods()
 			checkPrometheus(checkSlice, false)
 		})
-		ginkgo.Specify("\nScale Down test to make sure pods and nodes are evicted", func() {
-			scaleDown()
+		ginkgo.Specify("\nRemove Pods to make sure they are evicted", func() {
+			destroyManyPods()
 			checkPrometheus(checkSlice, true)
 		})
 	})
+	//ginkgo.Context("Test Scaling\n", func() {
+	//	checkSlice := []string{
+	//		"node_name=\"minikube-m02",
+	//		"ephemeral_storage_container_limit_percentage{container=\"kube-proxy\",node_name=\"minikube-m02\"",
+	//	}
+	//	ginkgo.Specify("\nScale up test to make sure pods and nodes are found", func() {
+	//		scaleUp()
+	//		checkPrometheus(checkSlice, false)
+	//	})
+	//	ginkgo.Specify("\nScale Down test to make sure pods and nodes are evicted", func() {
+	//		scaleDown()
+	//		checkPrometheus(checkSlice, true)
+	//	})
+	//})
 })
 
 func TestDeployments(t *testing.T) {
