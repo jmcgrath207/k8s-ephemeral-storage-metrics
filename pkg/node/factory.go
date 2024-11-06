@@ -63,5 +63,12 @@ func NewCollector(sampleInterval int64) Node {
 		WaitGroup:               &waitGroup,
 	}
 	node.createMetrics()
+
+	if node.deployType != "Deployment" {
+		node.Set.Add(dev.GetEnv("CURRENT_NODE_NAME", ""))
+	} else {
+		go node.Watch()
+	}
+
 	return node
 }

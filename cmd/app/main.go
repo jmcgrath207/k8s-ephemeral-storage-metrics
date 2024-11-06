@@ -49,8 +49,8 @@ func setMetrics(nodeName string) {
 	start := time.Now()
 
 	content, err := Node.Query(nodeName)
+	// Skip node query if there is an error.
 	if err != nil {
-		log.Warn().Msgf("Could not query node %s for ephemeral storage", nodeName)
 		return
 	}
 
@@ -83,7 +83,6 @@ func setMetrics(nodeName string) {
 
 func getMetrics() {
 
-	Node.WaitGroup.Wait()
 	Pod.WaitGroup.Wait()
 
 	p, _ := ants.NewPoolWithFunc(Node.MaxNodeQueryConcurrency, func(node interface{}) {
@@ -120,8 +119,6 @@ func main() {
 	if pprofEnabled {
 		go dev.EnablePprof()
 	}
-	go Node.Get()
-	go Node.Watch()
 	go getMetrics()
 	http.Handle("/metrics", promhttp.Handler())
 	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s", port))
