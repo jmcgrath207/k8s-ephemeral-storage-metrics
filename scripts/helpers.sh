@@ -107,3 +107,19 @@ function wait_pods() {
     echo ""
   fi
 }
+
+function dev_image_builder() {
+  # Build image with docker and upload with crane.
+
+  local image_name=$1
+  local dockerfile=$2
+  local external_registry=$3
+  local internal_registry=$4
+
+  docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f "../${dockerfile}" \
+  -t "${external_registry}/${image_name}" -t "${internal_registry}/${image_name}" ../.
+
+  docker save "${external_registry}/${image_name}" >/tmp/image.tar
+  "${LOCALBIN}/crane" push --insecure /tmp/image.tar "${external_registry}/${image_name}"
+  rm /tmp/image.tar
+}

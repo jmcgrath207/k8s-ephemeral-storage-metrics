@@ -14,38 +14,13 @@ function main() {
   local common_set_values_arr
   local grow_repo_image
   local shrink_repo_image
+  local main_repo_image
   local e2e_values_arr
   local external_registry
   local internal_registry
-  local status_code
   local time_tag
 
   trap 'trap_func' EXIT ERR
-
-  # Wait until registry pod come up
-  while [ "$(kubectl get pods -n kube-system -l actual-registry=true -o=jsonpath='{.items[*].status.phase}')" != "Running" ]; do
-    echo "Waiting for registry pod to start. Sleep 10" && sleep 10
-  done
-
-  # Wait until registry-proxy pod come up
-  while [ "$(kubectl get pods -n kube-system -l registry-proxy=true -o=jsonpath='{.items[*].status.phase}')" != "Running" ]; do
-    echo "Waiting for registry proxy pod to start. Sleep 10" && sleep 10
-  done
-
-  # Use a while loop to repeatedly check the registry endpoint until health
-  while true; do
-   # Send a GET request to the endpoint and capture the HTTP status code
-   status_code=$(curl -s -o /dev/null -w "%{http_code}" "http://$(minikube ip):5000/v2/_catalog")
-
-   # Check if the status code is 200
-   if [ "$status_code" -eq 200 ]; then
-      echo "Registry endpoint is healthy. Status code: $status_code"
-      break
-   else
-      echo "Registry endpoint is not healthy. Status code: $status_code. Retrying..."
-      sleep 5 # Wait for 5 seconds before retrying
-   fi
-  done
 
   # Need both. External to push and internal for pods to pull from registry in cluster
   external_registry="$(minikube ip):5000"
@@ -56,22 +31,11 @@ function main() {
   time_tag=$(date +%Y%m%d%H%M%S)
 
   grow_repo_image="k8s-ephemeral-storage-grow-test:${time_tag}"
-
-  docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f ../DockerfileTestGrow \
-    -t "${external_registry}/${grow_repo_image}" -t "${internal_registry}/${grow_repo_image}" ../.
-
-  docker save "${external_registry}/${grow_repo_image}" >/tmp/image.tar
-  "${LOCALBIN}/crane" push --insecure /tmp/image.tar "${external_registry}/${grow_repo_image}"
-  rm /tmp/image.tar
+  dev_image_builder "${grow_repo_image}" "DockerfileTestGrow" "${external_registry}" "${internal_registry}"
 
   shrink_repo_image="k8s-ephemeral-storage-shrink-test:${time_tag}"
+  dev_image_builder "${shrink_repo_image}" "DockerfileTestShrink" "${external_registry}" "${internal_registry}"
 
-  docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f ../DockerfileTestShrink \
-    -t "${external_registry}/${shrink_repo_image}" -t "${internal_registry}/${shrink_repo_image}" ../.
-
-  docker save "${external_registry}/${shrink_repo_image}" >/tmp/image.tar
-  ${LOCALBIN}/crane push --insecure /tmp/image.tar "${external_registry}/${shrink_repo_image}"
-  rm /tmp/image.tar
 
   if [[ $ENV == "debug" ]]; then
     image_tag="debug-${time_tag}"
@@ -83,12 +47,7 @@ function main() {
 
   # Main image
   main_repo_image="${DEPLOYMENT_NAME}:${image_tag}"
-  docker build --build-arg TARGETOS=linux --build-arg TARGETARCH=amd64 -f ../${dockerfile} \
-    -t "${external_registry}/${main_repo_image}" -t "${internal_registry}/${main_repo_image}" ../.
-
-  docker save "${external_registry}/${main_repo_image}" >/tmp/image.tar
-  ${LOCALBIN}/crane push --insecure /tmp/image.tar "${external_registry}/${main_repo_image}"
-  rm /tmp/image.tar
+  dev_image_builder "${main_repo_image}" "${dockerfile}" "${external_registry}" "${internal_registry}"
 
   ### Install Chart ###
 

@@ -14,7 +14,6 @@ import (
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
 	"github.com/rs/zerolog/log"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 )
@@ -31,24 +30,14 @@ func (n *Node) getKubeletEndpoint(node *v1.Node) string {
 	return ""
 }
 
-func (n *Node) Get() {
-	n.WaitGroup.Add(1)
-	if n.deployType != "Deployment" {
-		n.Set.Add(dev.GetEnv("CURRENT_NODE_NAME", ""))
-		n.WaitGroup.Done()
-		return
-	}
-
-	// Init Node slice
-	startNodes, _ := dev.Clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-	for _, node := range startNodes.Items {
-		n.Set.Add(node.Name)
-		if n.scrapeFromKubelet {
-			n.KubeletEndpoint.Store(node.Name, n.getKubeletEndpoint(&node))
+func checkKubeletStatus(nodeStatusConditions *[]v1.NodeCondition) bool {
+	// Ensure the Kubelet service is ready.
+	for _, nodeCon := range *nodeStatusConditions {
+		if nodeCon.Reason == "KubeletReady" {
+			return true
 		}
 	}
-	n.WaitGroup.Done()
-
+	return false
 }
 
 func (n *Node) Query(node string) ([]byte, error) {
@@ -95,7 +84,10 @@ func (n *Node) Query(node string) ([]byte, error) {
 	err := backoff.Retry(operation, bo)
 
 	if err != nil {
-		log.Warn().Msg(fmt.Sprintf("Failed fetched proxy stats from node : %s: %v", node, err))
+		log.Warn().Msg(fmt.Sprintf("Failed to fetched proxy stats from node: %s Error: %v", node, err))
+		// Assume the node status is not ready so evict all pods tracked by that node. The Update func in the Node Watcher
+		// will pick the node back up for monitoring again, once the kubelet status reports back ready.
+		n.evict(node)
 		return nil, err
 	}
 
@@ -104,9 +96,9 @@ func (n *Node) Query(node string) ([]byte, error) {
 }
 
 func (n *Node) Watch() {
-	n.WaitGroup.Wait()
 	stopCh := make(chan struct{})
 	defer close(stopCh)
+	// TODO: break out the sampleInterval into Groups. E.g. nodeSampleInterval, podSampleInterval, metricsSampleInterval
 	sharedInformerFactory := informers.NewSharedInformerFactory(dev.Clientset, time.Duration(n.sampleInterval)*time.Second)
 	nodeInformer := sharedInformerFactory.Core().V1().Nodes().Informer()
 
@@ -114,14 +106,25 @@ func (n *Node) Watch() {
 	eventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			p := obj.(*v1.Node)
-			n.Set.Add(p.Name)
-			if n.scrapeFromKubelet {
-				n.KubeletEndpoint.Store(p.Name, n.getKubeletEndpoint(p))
+			if checkKubeletStatus(&p.Status.Conditions) {
+				n.Set.Add(p.Name)
+				if n.scrapeFromKubelet {
+					n.KubeletEndpoint.Store(p.Name, n.getKubeletEndpoint(p))
+				}
+			}
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			p := newObj.(*v1.Node)
+			// Add nodes back that have changed readiness status.
+			if checkKubeletStatus(&p.Status.Conditions) {
+				n.Set.Add(p.Name)
+				if n.scrapeFromKubelet {
+					n.KubeletEndpoint.Store(p.Name, n.getKubeletEndpoint(p))
+				}
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			p := obj.(*v1.Node)
-			n.Set.Remove(p.Name)
 			n.evict(p.Name)
 			if n.scrapeFromKubelet {
 				n.KubeletEndpoint.Delete(p.Name)

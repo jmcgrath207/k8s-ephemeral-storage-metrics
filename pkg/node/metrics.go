@@ -92,12 +92,12 @@ func (n *Node) SetMetrics(nodeName string, availableBytes float64, capacityBytes
 }
 
 func (n *Node) evict(node string) {
-
+	n.Set.Remove(node)
 	nodeAvailableGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
 	nodeCapacityGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
 	nodePercentageGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
 	if n.AdjustedPollingRate {
 		AdjustedPollingRateGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
 	}
-	log.Info().Msgf("Node %s does not exist. Removed from monitoring", node)
+	log.Info().Msgf("Node %s does not exist or is unresponsive. Removed from monitoring", node)
 }
