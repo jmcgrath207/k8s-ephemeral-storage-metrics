@@ -1,4 +1,14 @@
 {
+  "__inputs": [
+      {
+        "name": "DS_PROMETHEUS",
+        "label": "Prometheus",
+        "description": "",
+        "type": "datasource",
+        "pluginId": "prometheus",
+        "pluginName": "Prometheus"
+      }
+  ],
   "annotations": {
     "list": [
       {
@@ -24,7 +34,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Storage usage in bytes by namespaces on the Kubernetes cluster",
       "fieldConfig": {
@@ -105,7 +115,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "sum by (pod_namespace) (ephemeral_storage_pod_usage{node_name=~\"${node}\"})",
@@ -124,7 +134,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Total capacity of the ephemeral storage for nodes with their usage bytes",
       "fieldConfig": {
@@ -205,7 +215,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "ephemeral_storage_node_capacity{node_name=~\"${node}\"}",
@@ -220,7 +230,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "ephemeral_storage_node_capacity{node_name=~\"${node}\"} - ephemeral_storage_node_available{node_name=~\"${node}\"}",
@@ -239,7 +249,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Percentage of ephemeral storage used on nodes",
       "fieldConfig": {
@@ -320,7 +330,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "ephemeral_storage_node_percentage{node_name=~\"${node}\"}\r\n",
@@ -361,6 +371,34 @@
         "type": "datasource"
       },
       {
+          "current": {
+            "isNone": true,
+            "selected": false,
+            "text": "None",
+            "value": ""
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "definition": "label_values(ephemeral_storage_node_capacity,cluster)",
+          "hide": 0,
+          "includeAll": false,
+          "multi": false,
+          "name": "cluster",
+          "options": [],
+          "query": {
+            "qryType": 1,
+            "query": "label_values(ephemeral_storage_node_capacity,cluster)",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 1,
+          "type": "query"
+      },
+      {
         "allValue": ".*",
         "current": {
           "selected": true,
@@ -383,7 +421,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(ephemeral_storage_node_capacity,node_name)",
+        "definition": "label_values(ephemeral_storage_node_capacity{cluster=~\"$cluster\"},node_name)",
         "hide": 0,
         "includeAll": false,
         "label": "node",
@@ -392,7 +430,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(ephemeral_storage_node_capacity,node_name)",
+          "query": "label_values(ephemeral_storage_node_capacity{cluster=~\"$cluster\"},node_name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -408,7 +446,7 @@
     "to": "now"
   },
   "timepicker": {},
-  "timezone": "utc",
+  "timezone": "",
   "title": "Kubernetes / Ephemeral Storage Nodes",
   "version": 1,
   "weekStart": ""
