@@ -200,12 +200,22 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 	}
 }
 
-func evictPodFromMetrics(p v1.Pod) {
-
+// Evicts exporter metrics by pod and container name
+func evictPodByName(p v1.Pod) {
 	podGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	// TODO: Look into removing this for loop and delete by pod_name
+	// e.g. containerVolumeUsageVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 	for _, c := range p.Spec.Containers {
 		containerVolumeUsageVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
 		containerPercentageLimitsVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
 		containerPercentageVolumeLimitsVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
 	}
+}
+
+// EvictPodByNode Evicts exporter metrics by Node
+func EvictPodByNode(deleteLabel *prometheus.Labels) {
+	podGaugeVec.DeletePartialMatch(*deleteLabel)
+	containerVolumeUsageVec.DeletePartialMatch(*deleteLabel)
+	containerPercentageLimitsVec.DeletePartialMatch(*deleteLabel)
+	containerPercentageVolumeLimitsVec.DeletePartialMatch(*deleteLabel)
 }

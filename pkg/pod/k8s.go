@@ -76,7 +76,7 @@ func (cr Collector) podWatch() {
 			cr.lookupMutex.Lock()
 			delete(*cr.lookup, p.Name)
 			cr.lookupMutex.Unlock()
-			evictPodFromMetrics(*p)
+			evictPodByName(*p)
 		},
 	}
 
