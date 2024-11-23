@@ -2,10 +2,10 @@ package node
 
 import (
 	"fmt"
-	"math"
-
+	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/pod"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
+	"math"
 )
 
 var (
@@ -93,11 +93,14 @@ func (n *Node) SetMetrics(nodeName string, availableBytes float64, capacityBytes
 
 func (n *Node) evict(node string) {
 	n.Set.Remove(node)
-	nodeAvailableGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
-	nodeCapacityGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
-	nodePercentageGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
+	deleteLabel := prometheus.Labels{"node_name": node}
+
+	nodeAvailableGaugeVec.DeletePartialMatch(deleteLabel)
+	nodeCapacityGaugeVec.DeletePartialMatch(deleteLabel)
+	nodePercentageGaugeVec.DeletePartialMatch(deleteLabel)
 	if n.AdjustedPollingRate {
-		AdjustedPollingRateGaugeVec.DeletePartialMatch(prometheus.Labels{"node_name": node})
+		AdjustedPollingRateGaugeVec.DeletePartialMatch(deleteLabel)
 	}
+	pod.EvictPodByNode(&deleteLabel)
 	log.Info().Msgf("Node %s does not exist or is unresponsive. Removed from monitoring", node)
 }
