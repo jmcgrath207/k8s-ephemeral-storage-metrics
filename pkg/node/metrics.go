@@ -2,10 +2,11 @@ package node
 
 import (
 	"fmt"
+	"math"
+
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/pod"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
-	"math"
 )
 
 var (
@@ -72,7 +73,7 @@ func (n *Node) SetMetrics(nodeName string, availableBytes float64, capacityBytes
 
 	if n.nodeAvailable {
 		nodeAvailableGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(availableBytes)
-		log.Debug().Msg(fmt.Sprintf("Node: %s availble bytes: %f", nodeName, availableBytes))
+		log.Debug().Msg(fmt.Sprintf("Node: %s available bytes: %f", nodeName, availableBytes))
 	}
 
 	if n.nodeCapacity {

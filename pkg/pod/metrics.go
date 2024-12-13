@@ -14,6 +14,9 @@ var (
 	containerVolumeUsageVec            *prometheus.GaugeVec
 	containerPercentageLimitsVec       *prometheus.GaugeVec
 	containerPercentageVolumeLimitsVec *prometheus.GaugeVec
+	inodesGaugeVec                     *prometheus.GaugeVec
+	inodesFreeGaugeVec                 *prometheus.GaugeVec
+	inodesUsedGaugeVec                 *prometheus.GaugeVec
 )
 
 type Volume struct {
@@ -104,9 +107,57 @@ func (cr Collector) createMetrics() {
 	)
 
 	prometheus.MustRegister(containerPercentageVolumeLimitsVec)
+
+	inodesGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_inodes",
+		Help: "Maximum number of inodes in the pod",
+	},
+		[]string{
+			// name of pod for Ephemeral Storage
+			"pod_name",
+			// namespace of pod for Ephemeral Storage
+			"pod_namespace",
+			// Name of Node where pod is placed.
+			"node_name",
+		},
+	)
+
+	prometheus.MustRegister(inodesGaugeVec)
+
+	inodesFreeGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_inodes_free",
+		Help: "Number of free inodes in the pod",
+	},
+		[]string{
+			// name of pod for Ephemeral Storage
+			"pod_name",
+			// namespace of pod for Ephemeral Storage
+			"pod_namespace",
+			// Name of Node where pod is placed.
+			"node_name",
+		},
+	)
+
+	prometheus.MustRegister(inodesFreeGaugeVec)
+
+	inodesUsedGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_inodes_used",
+		Help: "Number of used inodes in the pod",
+	},
+		[]string{
+			// name of pod for Ephemeral Storage
+			"pod_name",
+			// namespace of pod for Ephemeral Storage
+			"pod_namespace",
+			// Name of Node where pod is placed.
+			"node_name",
+		},
+	)
+
+	prometheus.MustRegister(inodesUsedGaugeVec)
 }
 
-func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName string, usedBytes float64, availableBytes float64, capacityBytes float64, volumes []Volume) {
+func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName string, usedBytes float64, availableBytes float64, capacityBytes float64, inodes float64, inodesFree float64, inodesUsed float64, volumes []Volume) {
 
 	var setValue float64
 	cr.lookupMutex.RLock()
@@ -198,11 +249,24 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 		podGaugeVec.With(labels).Set(usedBytes)
 		log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
 	}
+
+	if cr.inodes {
+		labels := prometheus.Labels{"pod_namespace": podNamespace,
+			"pod_name": podName, "node_name": nodeName}
+		inodesGaugeVec.With(labels).Set(inodes)
+		inodesFreeGaugeVec.With(labels).Set(inodesFree)
+		inodesUsedGaugeVec.With(labels).Set(inodesUsed)
+		log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with inodes: %f, inodesFree: %f, inodesUsed: %f", podNamespace, podName, nodeName, inodes, inodesFree, inodesUsed))
+	}
 }
 
 // Evicts exporter metrics by pod and container name
 func evictPodByName(p v1.Pod) {
 	podGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	inodesGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	inodesFreeGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	inodesUsedGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+
 	// TODO: Look into removing this for loop and delete by pod_name
 	// e.g. containerVolumeUsageVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 	for _, c := range p.Spec.Containers {
