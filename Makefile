@@ -95,13 +95,13 @@ release-helm:
 
 release: release-docker release-helm helm-docs
 	# Prod release
-	# ex. make VERSION=1.15.0 release
+	# ex. make VERSION=1.16.0 release
 	# Prerelease Candidate
 	# ex. make VERSION=1.11.2-rc01 release
 
 release-github:
 	# Prod release
-	# ex. make VERSION=1.15.0 release-github
+	# ex. make VERSION=1.16.0 release-github
 	gh repo set-default jmcgrath207/k8s-ephemeral-storage-metrics
 	gh release create ${VERSION} --generate-notes
 	gh release upload ${VERSION} "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz"
