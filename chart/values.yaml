@@ -89,6 +89,16 @@ tolerations: []
 
 priorityClassName:
 
+# -- Service Account configuration
+serviceAccount:
+  create: false
+  # If not set and create is true, a name is generated using the name template
+  name: null
+
+# -- RBAC configuration
+rbac:
+  create: false
+
 # Pod Security Context
 # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
 podSecurityContext:
