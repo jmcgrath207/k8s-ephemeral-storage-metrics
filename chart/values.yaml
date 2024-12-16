@@ -36,6 +36,8 @@ metrics:
   ephemeral_storage_container_volume_limit_percentage: true
   # -- Current ephemeral byte usage of pod
   ephemeral_storage_pod_usage: true
+  # -- Current ephemeral inode usage of pod
+  ephemeral_storage_inodes: true
   # -- Available ephemeral storage for a node
   ephemeral_storage_node_available: true
   # -- Capacity of ephemeral storage for a node

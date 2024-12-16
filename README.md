@@ -53,6 +53,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | metrics.ephemeral_storage_node_capacity | bool | `true` | Capacity of ephemeral storage for a node |
 | metrics.ephemeral_storage_node_percentage | bool | `true` | Percentage of ephemeral storage used on a node |
 | metrics.ephemeral_storage_pod_usage | bool | `true` | Current ephemeral byte usage of pod |
+| metrics.ephemeral_storage_inodes | bool | `true` | Current ephemeral inode usage of pod |
 | metrics.port | int | `9100` | Adjust the metric port as needed (default 9100) |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |

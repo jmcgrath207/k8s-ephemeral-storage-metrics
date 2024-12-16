@@ -232,6 +232,30 @@ func getContainerVolumeUsage(podName string) float64 {
 	return currentPodSize
 }
 
+func getInodes(podName string) float64 {
+	output := requestPrometheusString()
+	re := regexp.MustCompile(fmt.Sprintf(`ephemeral_storage_inodes.+pod_name="%s.+\}\s(.+)`, podName))
+	match := re.FindAllStringSubmatch(output, 2)
+	inodes, _ := strconv.ParseFloat(match[0][1], 64)
+	return inodes
+}
+
+func getInodesFree(podName string) float64 {
+	output := requestPrometheusString()
+	re := regexp.MustCompile(fmt.Sprintf(`ephemeral_storage_inodes_free.+pod_name="%s.+\}\s(.+)`, podName))
+	match := re.FindAllStringSubmatch(output, 2)
+	inodesFree, _ := strconv.ParseFloat(match[0][1], 64)
+	return inodesFree
+}
+
+func getInodesUsed(podName string) float64 {
+	output := requestPrometheusString()
+	re := regexp.MustCompile(fmt.Sprintf(`ephemeral_storage_inodes_used.+pod_name="%s.+\}\s(.+)`, podName))
+	match := re.FindAllStringSubmatch(output, 2)
+	inodesUsed, _ := strconv.ParseFloat(match[0][1], 64)
+	return inodesUsed
+}
+
 func WatchEphemeralSize(podName string, desiredSizeChange float64, timeout time.Duration, getPodSize getPodSize) {
 	// Watch Prometheus Metrics until the ephemeral storage shrinks or grows to a certain desiredSizeChange.
 	var currentPodSize float64

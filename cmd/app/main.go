@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/node"
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/pod"
@@ -11,9 +15,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 var (
@@ -36,6 +37,9 @@ type ephemeralStorageMetrics struct {
 			AvailableBytes float64 `json:"availableBytes"`
 			CapacityBytes  float64 `json:"capacityBytes"`
 			UsedBytes      float64 `json:"usedBytes"`
+			Inodes         float64 `json:"inodes"`
+			InodesFree     float64 `json:"inodesFree"`
+			InodesUsed     float64 `json:"inodesUsed"`
 		} `json:"ephemeral-storage"`
 
 		Volumes []pod.Volume `json:"volume,omitempty"`
@@ -63,12 +67,15 @@ func setMetrics(nodeName string) {
 		usedBytes := p.EphemeralStorage.UsedBytes
 		availableBytes := p.EphemeralStorage.AvailableBytes
 		capacityBytes := p.EphemeralStorage.CapacityBytes
-		if podNamespace == "" || (usedBytes == 0 && availableBytes == 0 && capacityBytes == 0) {
+		inodes := p.EphemeralStorage.Inodes
+		inodesFree := p.EphemeralStorage.InodesFree
+		inodesUsed := p.EphemeralStorage.InodesUsed
+		if podNamespace == "" || (usedBytes == 0 && availableBytes == 0 && capacityBytes == 0 && inodes == 0 && inodesFree == 0 && inodesUsed == 0) {
 			log.Warn().Msg(fmt.Sprintf("pod %s/%s on %s has no metrics on its ephemeral storage usage", podName, podNamespace, nodeName))
 			continue
 		}
 		Node.SetMetrics(nodeName, availableBytes, capacityBytes)
-		Pod.SetMetrics(podName, podNamespace, nodeName, usedBytes, availableBytes, capacityBytes, p.Volumes)
+		Pod.SetMetrics(podName, podNamespace, nodeName, usedBytes, availableBytes, capacityBytes, inodes, inodesFree, inodesUsed, p.Volumes)
 	}
 
 	adjustTime := sampleIntervalMill - time.Now().Sub(start).Milliseconds()
