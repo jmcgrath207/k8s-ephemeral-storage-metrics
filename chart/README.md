@@ -21,21 +21,21 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.imagePullSecrets | list | `[]` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.15.0"` |  |
+| image.tag | string | `"1.16.0"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | kubelet | object | `{"insecure":false,"readOnlyPort":0,"scrape":false}` | Scrape metrics through kubelet instead of kube api |
 | log_level | string | `"info"` |  |
 | max_node_concurrency | int | `10` | Max number of concurrent query requests to the kubernetes API. |
-| metrics | object | `{"adjusted_polling_rate":false,"ephemeral_storage_container_limit_percentage":true,"ephemeral_storage_container_volume_limit_percentage":true,"ephemeral_storage_container_volume_usage":true,"ephemeral_storage_node_available":true,"ephemeral_storage_node_capacity":true,"ephemeral_storage_node_percentage":true,"ephemeral_storage_pod_usage":true,"port":9100}` | Set metrics you want to enable |
+| metrics | object | `{"adjusted_polling_rate":false,"ephemeral_storage_container_limit_percentage":true,"ephemeral_storage_container_volume_limit_percentage":true,"ephemeral_storage_container_volume_usage":true,"ephemeral_storage_inodes":true,"ephemeral_storage_node_available":true,"ephemeral_storage_node_capacity":true,"ephemeral_storage_node_percentage":true,"ephemeral_storage_pod_usage":true,"port":9100}` | Set metrics you want to enable |
 | metrics.adjusted_polling_rate | bool | `false` | Create the ephemeral_storage_adjusted_polling_rate metrics to report Adjusted Poll Rate in milliseconds. Typically used for testing. |
 | metrics.ephemeral_storage_container_limit_percentage | bool | `true` | Percentage of ephemeral storage used by a container in a pod |
 | metrics.ephemeral_storage_container_volume_limit_percentage | bool | `true` | Percentage of ephemeral storage used by a container's volume in a pod |
 | metrics.ephemeral_storage_container_volume_usage | bool | `true` | Current ephemeral storage used by a container's volume in a pod |
+| metrics.ephemeral_storage_inodes | bool | `true` | Current ephemeral inode usage of pod |
 | metrics.ephemeral_storage_node_available | bool | `true` | Available ephemeral storage for a node |
 | metrics.ephemeral_storage_node_capacity | bool | `true` | Capacity of ephemeral storage for a node |
 | metrics.ephemeral_storage_node_percentage | bool | `true` | Percentage of ephemeral storage used on a node |
 | metrics.ephemeral_storage_pod_usage | bool | `true` | Current ephemeral byte usage of pod |
-| metrics.ephemeral_storage_inodes | bool | `true` | Current ephemeral inode usage of pod |
 | metrics.port | int | `9100` | Adjust the metric port as needed (default 9100) |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
