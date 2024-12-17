@@ -55,7 +55,7 @@ Create the name of the service account to use
 */}}
 {{- define "chart.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "chart.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "chart.name" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
