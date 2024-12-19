@@ -232,30 +232,6 @@ func getContainerVolumeUsage(podName string) float64 {
 	return currentPodSize
 }
 
-func getInodes(podName string) float64 {
-	output := requestPrometheusString()
-	re := regexp.MustCompile(fmt.Sprintf(`ephemeral_storage_inodes.+pod_name="%s.+\}\s(.+)`, podName))
-	match := re.FindAllStringSubmatch(output, 2)
-	inodes, _ := strconv.ParseFloat(match[0][1], 64)
-	return inodes
-}
-
-func getInodesFree(podName string) float64 {
-	output := requestPrometheusString()
-	re := regexp.MustCompile(fmt.Sprintf(`ephemeral_storage_inodes_free.+pod_name="%s.+\}\s(.+)`, podName))
-	match := re.FindAllStringSubmatch(output, 2)
-	inodesFree, _ := strconv.ParseFloat(match[0][1], 64)
-	return inodesFree
-}
-
-func getInodesUsed(podName string) float64 {
-	output := requestPrometheusString()
-	re := regexp.MustCompile(fmt.Sprintf(`ephemeral_storage_inodes_used.+pod_name="%s.+\}\s(.+)`, podName))
-	match := re.FindAllStringSubmatch(output, 2)
-	inodesUsed, _ := strconv.ParseFloat(match[0][1], 64)
-	return inodesUsed
-}
-
 func WatchEphemeralSize(podName string, desiredSizeChange float64, timeout time.Duration, getPodSize getPodSize) {
 	// Watch Prometheus Metrics until the ephemeral storage shrinks or grows to a certain desiredSizeChange.
 	var currentPodSize float64
@@ -322,14 +298,19 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 		ginkgo.Specify("\nMake sure all metrics are in the exporter", func() {
 			var checkSlice []string
 			checkSlice = append(checkSlice, "ephemeral_storage_pod_usage",
+				"pod_name=\"k8s-ephemeral-storage",
+				"ephemeral_storage_adjusted_polling_rate",
+				"node_name=\"minikube",
 				"ephemeral_storage_node_available",
 				"ephemeral_storage_node_capacity",
 				"ephemeral_storage_node_percentage",
-				"pod_name=\"k8s-ephemeral-storage", "ephemeral_storage_adjusted_polling_rate",
-				"node_name=\"minikube",
 				"ephemeral_storage_container_limit_percentage",
 				"ephemeral_storage_container_volume_limit_percentage",
-				"ephemeral_storage_container_volume_usage")
+				"ephemeral_storage_container_volume_usage",
+				"ephemeral_storage_inodes",
+				"ephemeral_storage_inodes_free",
+				"ephemeral_storage_inodes_used",
+			)
 			checkPrometheus(checkSlice, false)
 		})
 	})
