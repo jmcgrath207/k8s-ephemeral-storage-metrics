@@ -13,7 +13,7 @@ $(LOCALBIN):
 
 
 ginkgo:
-	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@v2.20.2
+	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@v2.22.0
 
 crane:
 	test -s $(LOCALBIN)/crane || GOBIN=$(LOCALBIN) go install github.com/google/go-containerregistry/cmd/crane@latest
