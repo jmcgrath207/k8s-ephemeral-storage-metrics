@@ -50,7 +50,7 @@ spec:
           expr: |-2
             (   ( max by (node_name, pod_namespace, pod_name, exported_container)
                          (ephemeral_storage_container_limit_percentage{source="container"})
-                > 33.3)
+                > {{ $rules.predictMinCurrentUsage | float64 }})
             and on (pod_namespace, pod_name, exported_container)
                    ( predict_linear( ephemeral_storage_container_limit_percentage{source="container"}[2h]
                                    , {{ $predictFilledHours | float64 }}*3600)
@@ -103,7 +103,7 @@ spec:
           expr: |-2
             (   ( max by (pod_namespace, pod_name, volume_name)
                          (ephemeral_storage_container_volume_limit_percentage)
-                > 33.3)
+                > {{ $rules.predictMinCurrentUsage | float64 }})
             and ( max by (pod_namespace, pod_name, volume_name)
                          (predict_linear( ephemeral_storage_container_volume_limit_percentage[2h]
                                         , {{ $predictFilledHours | float64 }}*3600))
