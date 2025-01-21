@@ -63,6 +63,8 @@ prometheus:
     enable: false
     # -- How many hours in the future to predict filling up of a volume
     predictFilledHours: 12
+    # -- What percentage of limit must be used right now to predict filling up of a volume
+    predictMinCurrentUsage: 33.3
     # -- What additional labels to set on alerts
     labels:
       severity: warning
