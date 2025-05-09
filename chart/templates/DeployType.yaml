@@ -5,6 +5,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
   {{- include "chart.labels" . | nindent 4 }}
+  {{- if .Values.deploy_labels }}
+  {{- toYaml .Values.deploy_labels | nindent 4 }}
+  {{- end }}
 spec:
   {{- if eq .Values.deploy_type "Deployment" }}
   replicas: 1
