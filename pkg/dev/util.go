@@ -65,6 +65,15 @@ func SetK8sClient() {
 		setScrapeFromKubelet(config)
 	}
 
+	// fix: reading ops and burst from os env.
+	if qps, err := strconv.ParseFloat(GetEnv("CLIENT_GO_QPS", "5"), 32); err == nil {
+		config.QPS = float32(qps)
+	}
+	if burst, err := strconv.Atoi(GetEnv("CLIENT_GO_BURST", "10")); err == nil {
+		config.Burst = burst
+	}
+
+
 	// creates the clientset
 	Clientset, err = kubernetes.NewForConfig(config)
 	if err != nil {
