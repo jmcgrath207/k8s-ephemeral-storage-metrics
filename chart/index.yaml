@@ -8,6 +8,28 @@ entries:
           url: https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: 1.17.0
+    created: "2025-06-01T22:48:20.292427593-05:00"
+    description: Ephemeral storage metrics for prometheus operator.
+    digest: 67439be03933ff470548a9089a6d95aa44f29d9522098d843cf50ea75fbd1c6b
+    home: https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics
+    keywords:
+    - kubernetes
+    - metrics
+    kubeVersion: '>=1.21.0-0'
+    name: k8s-ephemeral-storage-metrics
+    sources:
+    - https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics
+    urls:
+    - https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/releases/download/1.17.0/k8s-ephemeral-storage-metrics-1.17.0.tgz
+    version: 1.17.0
+  - annotations:
+      artifacthub.io/license: MIT
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: 1.16.3
     created: "2025-01-20T23:24:17.359789673-06:00"
     description: Ephemeral storage metrics for prometheus operator.
@@ -947,4 +969,4 @@ entries:
     urls:
     - https://github.com/jmcgrath207/k8s-ephemeral-storage-metrics/releases/download/1.0.0/k8s-ephemeral-storage-metrics-1.0.0.tgz
     version: 1.0.0
-generated: "2025-01-20T23:24:17.358948076-06:00"
+generated: "2025-06-01T22:48:20.291486115-05:00"
