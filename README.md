@@ -63,6 +63,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | pprof | bool | `false` | Enable Pprof |
 | priorityClassName | string | `nil` |  |
 | prometheus.enable | bool | `true` |  |
+| prometheus.additionalLabels | object | `{}` | Add labels to the PrometheusRule.Spec |
 | prometheus.release | string | `"kube-prometheus-stack"` |  |
 | prometheus.rules.enable | bool | `false` | Create PrometheusRules firing alerts when out of ephemeral storage |
 | prometheus.rules.labels | object | `{"severity":"warning"}` | What additional labels to set on alerts |

@@ -6,17 +6,17 @@ image:
 
 # -- Configure the Service Monitor
 serviceMonitor:
-   enable: true
-   # -- Add labels to the ServiceMonitor.Spec
-   additionalLabels: {}
-   # -- Set relabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig
-   relabelings: []
-   # -- Set metricRelabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig
-   metricRelabelings: []
-   # -- Set targetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec
-   targetLabels: []
-   # -- Set podTargetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec
-   podTargetLabels: []
+  enable: true
+  # -- Add labels to the ServiceMonitor.Spec
+  additionalLabels: {}
+  # -- Set relabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig
+  relabelings: []
+  # -- Set metricRelabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig
+  metricRelabelings: []
+  # -- Set targetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec
+  targetLabels: []
+  # -- Set podTargetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec
+  podTargetLabels: []
 
 # -- Scrape metrics through kubelet instead of kube api
 kubelet:
@@ -60,6 +60,8 @@ max_node_concurrency: 10
 prometheus:
   enable: true
   release: kube-prometheus-stack
+  # -- Add labels to the PrometheusRule.Spec
+  additionalLabels: {}
   rules:
     # -- Create PrometheusRules firing alerts when out of ephemeral storage
     enable: false
@@ -73,7 +75,6 @@ prometheus:
 
 # -- Enable Pprof
 pprof: false
-
 
 # -- For local development or testing that will deploy grow and shrink pods and debug service
 dev:

@@ -8,6 +8,10 @@ kind: PrometheusRule
 metadata:
   name: k8s-ephemeral-storage-container-limits
   namespace: "{{ $.Release.Namespace }}"
+  labels:
+{{- with $.Values.prometheus.additionalLabels }}
+{{- toYaml . | nindent 4 }}
+{{- end }}
 spec:
   groups:
     - name: k8s.rules.container_resource
