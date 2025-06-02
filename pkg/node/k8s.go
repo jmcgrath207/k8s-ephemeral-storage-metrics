@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v5"
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
 	"github.com/rs/zerolog/log"
 	v1 "k8s.io/api/core/v1"
