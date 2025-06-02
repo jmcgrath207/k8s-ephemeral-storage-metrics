@@ -94,6 +94,10 @@ spec:
               value: "{{ .Values.interval }}"
             - name: MAX_NODE_CONCURRENCY
               value: "{{ .Values.max_node_concurrency }}"
+            - name: CLIENT_GO_QPS
+              value: "{{ .Values.client_go_qps }}"
+            - name: CLIENT_GO_BURST
+              value: "{{ .Values.client_go_burst }}"
             - name: LOG_LEVEL
               value: "{{ .Values.log_level }}"
               {{- if .Values.metrics.ephemeral_storage_pod_usage }}

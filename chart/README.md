@@ -11,17 +11,20 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` |  |
+| client_go_burst | int | `10` | Maximum burst for throttle. |
+| client_go_qps | int | `5` | QPS indicates the maximum QPS to the master from this client. |
 | containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
 | containerSecurityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | containerSecurityContext.privileged | bool | `false` |  |
 | containerSecurityContext.readOnlyRootFilesystem | bool | `false` |  |
 | containerSecurityContext.runAsNonRoot | bool | `true` |  |
+| deploy_labels | object | `{}` | Set additional labels for the Deployment/Daemonset |
 | deploy_type | string | `"Deployment"` | Set as Deployment for single controller to query all nodes or Daemonset |
 | dev | object | `{"enabled":false,"grow":{"image":"ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest","imagePullPolicy":"IfNotPresent"},"shrink":{"image":"ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest","imagePullPolicy":"IfNotPresent"}}` | For local development or testing that will deploy grow and shrink pods and debug service |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.imagePullSecrets | list | `[]` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.16.3"` |  |
+| image.tag | string | `"1.17.0"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | kubelet | object | `{"insecure":false,"readOnlyPort":0,"scrape":false}` | Scrape metrics through kubelet instead of kube api |
 | log_level | string | `"info"` |  |
@@ -43,6 +46,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | podSecurityContext.seccompProfile.type | string | `"RuntimeDefault"` |  |
 | pprof | bool | `false` | Enable Pprof |
 | priorityClassName | string | `nil` |  |
+| prometheus.additionalLabels | object | `{}` | Add labels to the PrometheusRule.Spec |
 | prometheus.enable | bool | `true` |  |
 | prometheus.release | string | `"kube-prometheus-stack"` |  |
 | prometheus.rules.enable | bool | `false` | Create PrometheusRules firing alerts when out of ephemeral storage |

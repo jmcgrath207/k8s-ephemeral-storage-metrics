@@ -73,7 +73,6 @@ func SetK8sClient() {
 		config.Burst = burst
 	}
 
-
 	// creates the clientset
 	Clientset, err = kubernetes.NewForConfig(config)
 	if err != nil {
