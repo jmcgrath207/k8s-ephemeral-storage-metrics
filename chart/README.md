@@ -26,6 +26,17 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
 | image.tag | string | `"1.18.0"` |  |
 | interval | int | `15` | Polling node rate for exporter |
+| kubeRBACProxy.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
+| kubeRBACProxy.containerSecurityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| kubeRBACProxy.containerSecurityContext.readOnlyRootFilesystem | bool | `true` |  |
+| kubeRBACProxy.enabled | bool | `false` |  |
+| kubeRBACProxy.extraArgs | list | `[]` |  |
+| kubeRBACProxy.image.pullPolicy | string | `"IfNotPresent"` |  |
+| kubeRBACProxy.image.registry | string | `"quay.io"` |  |
+| kubeRBACProxy.image.repository | string | `"brancz/kube-rbac-proxy"` |  |
+| kubeRBACProxy.image.tag | string | `"v0.18.0"` |  |
+| kubeRBACProxy.resources | object | `{}` |  |
+| kubeRBACProxy.volumeMounts | list | `[]` |  |
 | kubelet | object | `{"insecure":false,"readOnlyPort":0,"scrape":false}` | Scrape metrics through kubelet instead of kube api |
 | log_level | string | `"info"` |  |
 | max_node_concurrency | int | `10` | Max number of concurrent query requests to the kubernetes API. |
@@ -57,7 +68,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | rbac | object | `{"create":true}` | RBAC configuration |
 | revisionHistoryLimit | int | `10` | Revision history limit for the Deployment |
 | serviceAccount | object | `{"create":true,"name":null}` | Service Account configuration |
-| serviceMonitor | object | `{"additionalLabels":{},"enable":true,"metricRelabelings":[],"podTargetLabels":[],"relabelings":[],"targetLabels":[]}` | Configure the Service Monitor |
+| serviceMonitor | object | `{"additionalLabels":{},"bearerTokenFile":"","enable":true,"metricRelabelings":[],"podTargetLabels":[],"relabelings":[],"scheme":"http","targetLabels":[],"tlsConfig":{}}` | Configure the Service Monitor |
 | serviceMonitor.additionalLabels | object | `{}` | Add labels to the ServiceMonitor.Spec |
 | serviceMonitor.metricRelabelings | list | `[]` | Set metricRelabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig |
 | serviceMonitor.podTargetLabels | list | `[]` | Set podTargetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec |
@@ -65,7 +76,9 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | serviceMonitor.targetLabels | list | `[]` | Set targetLabels as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.ServiceMonitorSpec |
 | tolerations | list | `[]` |  |
 
-## Prometheus alert rules
+## Configuration
+
+### Prometheus alert rules
 
 To prevent from multiple kind of alerts being fired for a single container or
 emptyDir volume when both `prometheus.enable` and `prometheus.rules.enable` are
@@ -93,6 +106,25 @@ to your Alert Manager config:
     - pod_name
     - exported_container
 ```
+
+### kube-rbac-proxy
+
+You can enable `k8s-ephemeral-storage-metrics` endpoint protection using `kube-rbac-proxy`. By setting `kubeRBACProxy.enabled: true`, this chart will deploy one RBAC proxy container per endpoint.
+To authorize access, authenticate your requests (via a `ServiceAccount` for example) with a `ClusterRole` attached such as:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8s-ephemeral-storage-metrics-read
+rules:
+  - apiGroups: [ "" ]
+    resources: ["services/k8s-ephemeral-storage-metrics"]
+    verbs:
+      - get
+```
+
+See [kube-rbac-proxy examples](https://github.com/brancz/kube-rbac-proxy/tree/master/examples/resource-attributes) for more details.
 
 ## Contribute
 

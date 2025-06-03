@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: {{ .Values.deploy_type  }}
 metadata:
-  name: k8s-ephemeral-storage-metrics
-  namespace: {{ .Release.Namespace }}
+  name: {{ template "k8s-ephemeral-storage-metrics.fullname" . }}
+  namespace: {{ template "k8s-ephemeral-storage-metrics.namespace" . }}
   labels:
-  {{- include "chart.labels" . | nindent 4 }}
+  {{- include "k8s-ephemeral-storage-metrics.labels" . | nindent 4 }}
   {{- if .Values.deploy_labels }}
   {{- toYaml .Values.deploy_labels | nindent 4 }}
   {{- end }}
@@ -15,18 +15,18 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-  {{- include "chart.selectorLabels" . | nindent 6 }}
+  {{- include "k8s-ephemeral-storage-metrics.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-      {{- include "chart.labels" . | nindent 8 }}
+      {{- include "k8s-ephemeral-storage-metrics.labels" . | nindent 8 }}
       {{- if .Values.pod_labels }}
       {{- toYaml .Values.pod_labels | nindent 8 }}
       {{- end }}
       annotations:
       {{- toYaml .Values.podAnnotations | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "chart.serviceAccountName" . }}
+      serviceAccountName: {{ include "k8s-ephemeral-storage-metrics.serviceAccountName" . }}
       nodeSelector:
       {{- toYaml .Values.nodeSelector | nindent 8 }}
       {{- with .Values.affinity }}
@@ -55,24 +55,25 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           ports:
+          {{- $metricsPort := ternary 8100 (.Values.metrics.port | default 9100) .Values.kubeRBACProxy.enabled}}
             - name: metrics
-              containerPort: {{ .Values.metrics.port  }}
+              containerPort: {{ $metricsPort }}
               protocol: TCP
-            {{ if .Values.dev.enabled }}
+            {{- if .Values.dev.enabled }}
             - name: debug
               containerPort: 30002
               protocol: TCP
-              {{ end }}
-            {{ if .Values.pprof }}
+              {{- end }}
+            {{- if .Values.pprof }}
             - name: pprof
               containerPort: 6060
               protocol: TCP
-              {{ end }}
+              {{- end }}
           livenessProbe:
             failureThreshold: 10
             httpGet:
               path: /metrics
-              port: {{ .Values.metrics.port  }}
+              port: {{ $metricsPort  }}
               scheme: HTTP
             initialDelaySeconds: 10
             periodSeconds: 10
@@ -82,7 +83,7 @@ spec:
             failureThreshold: 10
             httpGet:
               path: /metrics
-              port: {{ .Values.metrics.port  }}
+              port: {{ $metricsPort  }}
               scheme: HTTP
             periodSeconds: 10
             successThreshold: 1
@@ -94,6 +95,8 @@ spec:
           env:
             - name: DEPLOY_TYPE
               value: "{{ .Values.deploy_type }}"
+            - name: METRICS_PORT
+              value: "{{ $metricsPort }}"
             - name: SCRAPE_INTERVAL
               value: "{{ .Values.interval }}"
             - name: MAX_NODE_CONCURRENCY
@@ -162,4 +165,53 @@ spec:
                 fieldRef:
                   fieldPath: spec.nodeName
               {{- end }}
-
+        {{-  if .Values.kubeRBACProxy.enabled  }}
+        - name: kube-rbac-proxy
+          args:
+          {{-  if .Values.kubeRBACProxy.extraArgs  }}
+          {{- .Values.kubeRBACProxy.extraArgs | toYaml | nindent 8 }}
+          {{-  end  }}
+          - --secure-listen-address=:{{ .Values.metrics.port | default 9100}}
+          - --upstream=http://127.0.0.1:{{ $metricsPort }}/
+          - --proxy-endpoints-port=8888
+          - --config-file=/etc/kube-rbac-proxy-config/config-file.yaml
+          volumeMounts:
+            - name: kube-rbac-proxy-config
+              mountPath: /etc/kube-rbac-proxy-config
+            {{- with .Values.kubeRBACProxy.volumeMounts }}
+            {{- toYaml . | nindent 10 }}
+            {{- end }}
+          imagePullPolicy: {{ .Values.kubeRBACProxy.image.pullPolicy }}
+          image: {{ .Values.kubeRBACProxy.image.registry }}/{{ .Values.kubeRBACProxy.image.repository }}:{{ .Values.kubeRBACProxy.image.tag }}
+          {{- if .Values.kubeRBACProxy.image.pullSecrets }}
+          ports:
+            - containerPort: {{ .Values.service.port | default 9100 }}
+              name: "http"
+            - containerPort: 8888
+              name: "http-healthz"
+          readinessProbe:
+            httpGet:
+              scheme: HTTPS
+              port: 8888
+              path: healthz
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+          {{- if .Values.kubeRBACProxy.resources }}
+          resources:
+          {{ toYaml .Values.kubeRBACProxy.resources | indent 10 }}
+          {{- end }}
+          {{- if .Values.kubeRBACProxy.containerSecurityContext }}
+          securityContext:
+          {{ toYaml .Values.kubeRBACProxy.containerSecurityContext | indent 10 }}
+          {{- end }}
+          {{- end }}
+      volumes:
+      {{-  if .Values.kubeRBACProxy.enabled  }}
+        - name: kube-rbac-proxy-config
+          configMap:
+            name: {{ template "k8s-ephemeral-storage-metrics.fullname" . }}-rbac-config
+      {{- end }}
+      {{- if .Values.volumes }}
+{{ toYaml .Values.volumes | indent 8 }}
+      {{- end }}
+      {{- end }}

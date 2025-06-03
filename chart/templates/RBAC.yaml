@@ -4,9 +4,9 @@ kind: ServiceAccount
 metadata:
   labels:
     k8s-app: {{ .Release.Name }}
-  {{- include "chart.labels" . | nindent 4 }}
-  name: {{ include "chart.serviceAccountName" . }}
-  namespace: {{ .Release.Namespace }}
+  {{- include "k8s-ephemeral-storage-metrics.labels" . | nindent 4 }}
+  name: {{ include "k8s-ephemeral-storage-metrics.serviceAccountName" . }}
+  namespace: {{ template "k8s-ephemeral-storage-metrics.namespace" . }}
 {{- end }}
 
 {{- if .Values.rbac.create }}
@@ -14,27 +14,35 @@ metadata:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: k8s-ephemeral-storage-metrics
+  name: {{ template "k8s-ephemeral-storage-metrics.fullname" . }}
   labels:
-  {{- include "chart.labels" . | nindent 4 }}
+  {{- include "k8s-ephemeral-storage-metrics.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["nodes","nodes/proxy", "nodes/stats", "pods"]
     verbs: ["get","list", "watch"]
+{{-  if .Values.kubeRBACProxy.enabled  }}
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["subjectaccessreviews"]
+    verbs: ["create"]
+{{- end }}
 
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: k8s-ephemeral-storage-metrics
+  name: {{ template "k8s-ephemeral-storage-metrics.fullname" . }}
   labels:
-  {{- include "chart.labels" . | nindent 4 }}
+  {{- include "k8s-ephemeral-storage-metrics.labels" . | nindent 4 }}
 subjects:
   - kind: ServiceAccount
-    name: {{ include "chart.serviceAccountName" . }}
-    namespace: {{ .Release.Namespace }}
+    name: {{ include "k8s-ephemeral-storage-metrics.serviceAccountName" . }}
+    namespace: {{ template "k8s-ephemeral-storage-metrics.namespace" . }}
 roleRef:
   kind: ClusterRole
-  name: k8s-ephemeral-storage-metrics
+  name: {{ template "k8s-ephemeral-storage-metrics.fullname" . }}
   apiGroup: rbac.authorization.k8s.io
 {{- end }}

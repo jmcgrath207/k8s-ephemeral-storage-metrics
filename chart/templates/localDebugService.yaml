@@ -4,12 +4,12 @@ kind: Service
 metadata:
   name: debug
   labels:
-    {{- include "chart.labels" . | nindent 4 }}
+    {{- include "k8s-ephemeral-storage-metrics.labels" . | nindent 4 }}
     app.kubernetes.io/name: k8s-ephemeral-storage-metrics-debug
 spec:
   type: ClusterIP
   selector:
-    {{- include "chart.selectorLabels" . | nindent 4 }}
+    {{- include "k8s-ephemeral-storage-metrics.selectorLabels" . | nindent 4 }}
   ports:
     - protocol: TCP
       port: 30002
@@ -22,12 +22,12 @@ kind: Service
 metadata:
   name: pprof
   labels:
-    {{- include "chart.labels" . | nindent 4 }}
+    {{- include "k8s-ephemeral-storage-metrics.labels" . | nindent 4 }}
     app.kubernetes.io/name: k8s-ephemeral-storage-metrics-debug
 spec:
   type: ClusterIP
   selector:
-    {{- include "chart.selectorLabels" . | nindent 4 }}
+    {{- include "k8s-ephemeral-storage-metrics.selectorLabels" . | nindent 4 }}
   ports:
     - protocol: TCP
       port: 6060

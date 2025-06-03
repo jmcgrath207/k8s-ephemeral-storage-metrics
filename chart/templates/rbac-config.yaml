@@ -1,0 +1,18 @@
+{{- if .Values.kubeRBACProxy.enabled}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "k8s-ephemeral-storage-metrics.fullname" . }}-rbac-config
+  namespace: {{ template "k8s-ephemeral-storage-metrics.namespace" . }}
+  labels:
+    {{- include "k8s-ephemeral-storage-metrics.labels" . | nindent 6 }}
+data:
+  config-file.yaml: |+
+    authorization:
+      resourceAttributes:
+        namespace: {{ template "k8s-ephemeral-storage-metrics.namespace" . }}
+        apiVersion: v1
+        resource: services
+        subresource: {{ template "k8s-ephemeral-storage-metrics.fullname" . }}
+        name: {{ template "k8s-ephemeral-storage-metrics.fullname" . }}
+{{- end }}
