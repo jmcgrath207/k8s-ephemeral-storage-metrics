@@ -8,7 +8,10 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 
 {{ template "chart.valuesSection" . }}
 
-## Prometheus alert rules
+
+## Configuration
+
+### Prometheus alert rules
 
 To prevent from multiple kind of alerts being fired for a single container or
 emptyDir volume when both `prometheus.enable` and `prometheus.rules.enable` are
@@ -36,6 +39,25 @@ to your Alert Manager config:
     - pod_name
     - exported_container
 ```
+
+### kube-rbac-proxy
+
+You can enable `k8s-ephemeral-storage-metrics` endpoint protection using `kube-rbac-proxy`. By setting `kubeRBACProxy.enabled: true`, this chart will deploy one RBAC proxy container per endpoint.
+To authorize access, authenticate your requests (via a `ServiceAccount` for example) with a `ClusterRole` attached such as:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8s-ephemeral-storage-metrics-read
+rules:
+  - apiGroups: [ "" ]
+    resources: ["services/k8s-ephemeral-storage-metrics"]
+    verbs:
+      - get
+```
+
+See [kube-rbac-proxy examples](https://github.com/brancz/kube-rbac-proxy/tree/master/examples/resource-attributes) for more details.
 
 ## Contribute
 
