@@ -266,7 +266,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(ephemeral_storage_container_volume_usage,cluster)",
+        "definition": "label_values(ephemeral_storage_pod_usage,cluster)",
         "hide": 0,
         "includeAll": false,
         "multi": false,
@@ -274,7 +274,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(ephemeral_storage_container_volume_usage,cluster)",
+          "query": "label_values(ephemeral_storage_pod_usage,cluster)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -293,7 +293,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(ephemeral_storage_container_volume_usage{cluster=~\"$cluster\"},pod_namespace)",
+        "definition": "label_values(ephemeral_storage_pod_usage{cluster=~\"$cluster\"},pod_namespace)",
         "hide": 0,
         "includeAll": false,
         "label": "Namespace",
@@ -302,7 +302,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(ephemeral_storage_container_volume_usage{cluster=~\"$cluster\"},pod_namespace)",
+          "query": "label_values(ephemeral_storage_pod_usage{cluster=~\"$cluster\"},pod_namespace)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
