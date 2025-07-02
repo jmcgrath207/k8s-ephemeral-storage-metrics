@@ -6,8 +6,8 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: k8s-ephemeral-storage-container-limits
-  namespace: "{{ $.Release.Namespace }}"
+  name: {{ template "k8s-ephemeral-storage-metrics.fullname" . }}-container-limits
+  namespace: {{ template "k8s-ephemeral-storage-metrics.namespace" . }}
   labels:
 {{- with $.Values.prometheus.additionalLabels }}
 {{- toYaml . | nindent 4 }}

@@ -3,10 +3,10 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: k8s-ephemeral-storage-metrics
-  namespace: "{{ $.Release.Namespace }}"
+  name: {{ template "k8s-ephemeral-storage-metrics.fullname" . }}
+  namespace: {{ template "k8s-ephemeral-storage-metrics.namespace" . }}
   labels:
-  {{- include "chart.labels" . | nindent 4 }}
+  {{- include "k8s-ephemeral-storage-metrics.labels" . | nindent 4 }}
 {{- with .Values.serviceMonitor.additionalLabels }}
 {{- toYaml . | nindent 4 }}
 {{- end }}
@@ -14,8 +14,15 @@ spec:
   endpoints:
     - path: /metrics
       port: metrics
-      scheme: http
+      scheme: {{ .Values.serviceMonitor.scheme | default "http" }}
       interval: "{{ .Values.interval }}s"
+{{- if .Values.serviceMonitor.tlsConfig }}
+      tlsConfig:
+        {{- toYaml .Values.serviceMonitor.tlsConfig | nindent 8 }}
+{{- end }}
+{{- if .Values.serviceMonitor.bearerTokenFile }}
+      bearerTokenFile: {{ .Values.serviceMonitor.bearerTokenFile }}
+{{- end }}
 {{- if .Values.serviceMonitor.metricRelabelings }}
       metricRelabelings:
 {{ toYaml .Values.serviceMonitor.metricRelabelings | indent 8 }}
@@ -26,10 +33,10 @@ spec:
 {{- end }}
   namespaceSelector:
     matchNames:
-      - {{ .Release.Namespace }}
+      - {{ template "k8s-ephemeral-storage-metrics.namespace" . }}
   selector:
     matchLabels:
-      {{- include "chart.selectorLabels" . | nindent 6 }}
+      {{- include "k8s-ephemeral-storage-metrics.selectorLabels" . | nindent 6 }}
   {{- if .Values.serviceMonitor.targetLabels }}
   targetLabels:
     {{- range .Values.serviceMonitor.targetLabels }}
@@ -48,17 +55,17 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: k8s-ephemeral-storage-metrics
-  namespace: "{{ $.Release.Namespace }}"
+  name: {{ template "k8s-ephemeral-storage-metrics.fullname" . }}
+  namespace: {{ template "k8s-ephemeral-storage-metrics.namespace" . }}
   labels:
-    {{- include "chart.labels" . | nindent 6 }}
+    {{- include "k8s-ephemeral-storage-metrics.labels" . | nindent 6 }}
 spec:
   type: ClusterIP
   selector:
-  {{- include "chart.selectorLabels" . | nindent 6 }}
+  {{- include "k8s-ephemeral-storage-metrics.selectorLabels" . | nindent 6 }}
   ports:
     - name: metrics
       port: {{ .Values.metrics.port  }}
       protocol: TCP
-      targetPort: metrics
+      targetPort: {{ .Values.metrics.port  }}
 {{ end }}
