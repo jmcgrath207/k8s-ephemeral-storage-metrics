@@ -101,6 +101,9 @@ tolerations: []
 
 priorityClassName:
 
+# -- Revision history limit for the Deployment
+revisionHistoryLimit: 10
+
 # -- Service Account configuration
 serviceAccount:
   create: true

@@ -11,6 +11,7 @@ metadata:
 spec:
   {{- if eq .Values.deploy_type "Deployment" }}
   replicas: 1
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   {{- end }}
   selector:
     matchLabels:
