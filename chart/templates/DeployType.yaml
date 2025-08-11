@@ -19,6 +19,9 @@ spec:
     metadata:
       labels:
       {{- include "chart.labels" . | nindent 8 }}
+      {{- if .Values.pod_labels }}
+      {{- toYaml .Values.pod_labels | nindent 8 }}
+      {{- end }}
       annotations:
       {{- toYaml .Values.podAnnotations | nindent 8 }}
     spec:

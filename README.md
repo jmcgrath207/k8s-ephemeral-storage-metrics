@@ -60,6 +60,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | metrics.port | int | `9100` | Adjust the metric port as needed (default 9100) |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
+| pod_labels | object | `{}` | Set additional labels for the Pods |
 | podSecurityContext.runAsNonRoot | bool | `true` |  |
 | podSecurityContext.seccompProfile.type | string | `"RuntimeDefault"` |  |
 | pprof | bool | `false` | Enable Pprof |

@@ -52,6 +52,8 @@ log_level: info
 deploy_type: Deployment
 # -- Set additional labels for the Deployment/Daemonset
 deploy_labels: {}
+# -- Set additional labels for the Pods
+pod_labels: {}
 # Note in testing, Kube API does not refresh faster than 10 seconds
 # -- Polling node rate for exporter
 interval: 15 # Seconds
