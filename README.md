@@ -42,7 +42,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.imagePullSecrets | list | `[]` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.18.0"` |  |
+| image.tag | string | `"1.18.1"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | kubelet | object | `{"insecure":false,"readOnlyPort":0,"scrape":false}` | Scrape metrics through kubelet instead of kube api |
 | log_level | string | `"info"` |  |
@@ -60,9 +60,9 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | metrics.port | int | `9100` | Adjust the metric port as needed (default 9100) |
 | nodeSelector | object | `{}` |  |
 | podAnnotations | object | `{}` |  |
-| pod_labels | object | `{}` | Set additional labels for the Pods |
 | podSecurityContext.runAsNonRoot | bool | `true` |  |
 | podSecurityContext.seccompProfile.type | string | `"RuntimeDefault"` |  |
+| pod_labels | object | `{}` | Set additional labels for the Pods |
 | pprof | bool | `false` | Enable Pprof |
 | priorityClassName | string | `nil` |  |
 | prometheus.additionalLabels | object | `{}` | Add labels to the PrometheusRule.Spec |
