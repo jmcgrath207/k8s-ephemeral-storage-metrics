@@ -64,6 +64,14 @@ dev:
     image: ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest
     imagePullPolicy: IfNotPresent
 
+resources:
+  requests:
+      cpu: 10m
+      memory: 64Mi
+  limits:
+      #cpu: 10m
+      memory: 64Mi
+
 podAnnotations: {}
 
 nodeSelector: {}

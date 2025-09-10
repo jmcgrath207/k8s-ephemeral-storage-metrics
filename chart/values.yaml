@@ -93,6 +93,9 @@ dev:
     image: ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest
     imagePullPolicy: IfNotPresent
 
+# -- Resource requests and limits for the container
+resources: {}
+
 podAnnotations: {}
 
 nodeSelector: {}
