@@ -55,6 +55,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | prometheus.rules.predictFilledHours | int | `12` | How many hours in the future to predict filling up of a volume |
 | prometheus.rules.predictMinCurrentUsage | float | `33.3` | What percentage of limit must be used right now to predict filling up of a volume |
 | rbac | object | `{"create":true}` | RBAC configuration |
+| resources | object | `{}` | Resource requests and limits for the container |
 | revisionHistoryLimit | int | `10` | Revision history limit for the Deployment |
 | serviceAccount | object | `{"create":true,"name":null}` | Service Account configuration |
 | serviceMonitor | object | `{"additionalLabels":{},"enable":true,"metricRelabelings":[],"podTargetLabels":[],"relabelings":[],"targetLabels":[]}` | Configure the Service Monitor |
