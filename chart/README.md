@@ -47,6 +47,18 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | pod_labels | object | `{}` | Set additional labels for the Pods |
 | pprof | bool | `false` | Enable Pprof |
 | priorityClassName | string | `nil` |  |
+| probes | object | `{"liveness":{"failureThreshold":10,"initialDelaySeconds":10,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":30},"readiness":{"failureThreshold":10,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":1}}` | Liveness and Readiness probe configuration |
+| probes.liveness | object | `{"failureThreshold":10,"initialDelaySeconds":10,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":30}` | Liveness probe configuration |
+| probes.liveness.failureThreshold | int | `10` | Number of consecutive failures required to consider the container as not ready |
+| probes.liveness.initialDelaySeconds | int | `10` | Delay before the first probe is initiated |
+| probes.liveness.periodSeconds | int | `10` | How often to perform the probe |
+| probes.liveness.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed |
+| probes.liveness.timeoutSeconds | int | `30` | Number of seconds after which the probe times out |
+| probes.readiness | object | `{"failureThreshold":10,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":1}` | Readiness probe configuration |
+| probes.readiness.failureThreshold | int | `10` | Number of consecutive failures required to consider the container as not ready |
+| probes.readiness.periodSeconds | int | `10` | How often to perform the probe |
+| probes.readiness.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed |
+| probes.readiness.timeoutSeconds | int | `1` | Number of seconds after which the probe times out |
 | prometheus.additionalLabels | object | `{}` | Add labels to the PrometheusRule.Spec |
 | prometheus.enable | bool | `true` |  |
 | prometheus.release | string | `"kube-prometheus-stack"` |  |

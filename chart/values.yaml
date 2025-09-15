@@ -136,3 +136,28 @@ containerSecurityContext:
   privileged: false
   readOnlyRootFilesystem: false
   runAsNonRoot: true
+
+# -- Liveness and Readiness probe configuration
+probes:
+  # -- Liveness probe configuration
+  liveness:
+    # -- Number of consecutive failures required to consider the container as not ready
+    failureThreshold: 10
+    # -- Delay before the first probe is initiated
+    initialDelaySeconds: 10
+    # -- How often to perform the probe
+    periodSeconds: 10
+    # -- Minimum consecutive successes for the probe to be considered successful after having failed
+    successThreshold: 1
+    # -- Number of seconds after which the probe times out
+    timeoutSeconds: 30
+  # -- Readiness probe configuration
+  readiness:
+    # -- Number of consecutive failures required to consider the container as not ready
+    failureThreshold: 10
+    # -- How often to perform the probe
+    periodSeconds: 10
+    # -- Minimum consecutive successes for the probe to be considered successful after having failed
+    successThreshold: 1
+    # -- Number of seconds after which the probe times out
+    timeoutSeconds: 1
