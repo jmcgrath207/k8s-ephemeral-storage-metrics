@@ -69,24 +69,24 @@ spec:
               protocol: TCP
               {{ end }}
           livenessProbe:
-            failureThreshold: 10
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
             httpGet:
               path: /metrics
               port: {{ .Values.metrics.port  }}
               scheme: HTTP
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 30
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            successThreshold: {{ .Values.probes.liveness.successThreshold }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
           readinessProbe:
-            failureThreshold: 10
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
             httpGet:
               path: /metrics
               port: {{ .Values.metrics.port  }}
               scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            successThreshold: {{ .Values.probes.readiness.successThreshold }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
           {{- with .Values.containerSecurityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
