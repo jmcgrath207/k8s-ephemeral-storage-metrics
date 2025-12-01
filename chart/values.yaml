@@ -160,4 +160,4 @@ probes:
     # -- Minimum consecutive successes for the probe to be considered successful after having failed
     successThreshold: 1
     # -- Number of seconds after which the probe times out
-    timeoutSeconds: 1
+    timeoutSeconds: 2

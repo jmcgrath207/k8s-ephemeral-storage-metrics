@@ -81,7 +81,7 @@ spec:
           readinessProbe:
             failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
             httpGet:
-              path: /metrics
+              path: /health
               port: {{ .Values.metrics.port  }}
               scheme: HTTP
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
