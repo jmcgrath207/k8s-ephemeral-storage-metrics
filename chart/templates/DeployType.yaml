@@ -81,7 +81,7 @@ spec:
           readinessProbe:
             failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
             httpGet:
-              path: /health
+              path: /metrics
               port: {{ .Values.metrics.port  }}
               scheme: HTTP
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
@@ -104,6 +104,8 @@ spec:
               value: "{{ .Values.client_go_burst }}"
             - name: LOG_LEVEL
               value: "{{ .Values.log_level }}"
+            - name: READINESS_PROBE_TIMEOUT_SECONDS
+              value: "{{ .Values.probes.readiness.timeoutSeconds }}"
               {{- if .Values.metrics.ephemeral_storage_pod_usage }}
             - name: EPHEMERAL_STORAGE_POD_USAGE
               value: "{{ .Values.metrics.ephemeral_storage_pod_usage }}"

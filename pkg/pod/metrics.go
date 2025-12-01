@@ -3,6 +3,7 @@ package pod
 import (
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
@@ -27,7 +28,6 @@ type Volume struct {
 }
 
 func (cr Collector) createMetrics() {
-
 	podGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ephemeral_storage_pod_usage",
 		Help: "Current ephemeral byte usage of pod",
@@ -158,7 +158,6 @@ func (cr Collector) createMetrics() {
 }
 
 func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName string, usedBytes float64, availableBytes float64, capacityBytes float64, inodes float64, inodesFree float64, inodesUsed float64, volumes []Volume) {
-
 	var setValue float64
 	cr.lookupMutex.RLock()
 	podResult, okPodResult := (*cr.lookup)[podName]
@@ -177,9 +176,11 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 					for _, edv := range c.emptyDirVolumes {
 						for _, v := range volumes {
 							if edv.name == v.Name {
-								labels := prometheus.Labels{"pod_namespace": podNamespace,
-									"pod_name": podName, "node_name": nodeName, "container": c.name, "volume_name": v.Name,
-									"mount_path": edv.mountPath}
+								labels := prometheus.Labels{
+									"pod_namespace": podNamespace,
+									"pod_name":      podName, "node_name": nodeName, "container": c.name, "volume_name": v.Name,
+									"mount_path": edv.mountPath,
+								}
 								containerVolumeUsageVec.With(labels).Set(float64(v.UsedBytes))
 								log.Debug().Msg(fmt.Sprintf("pod %s/%s/%s  on %s with usedBytes: %f", podNamespace, podName, c.name, nodeName, usedBytes))
 							}
@@ -199,9 +200,11 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 						if edv.sizeLimit != 0 {
 							for _, v := range volumes {
 								if edv.name == v.Name {
-									labels := prometheus.Labels{"pod_namespace": podNamespace,
-										"pod_name": podName, "node_name": nodeName, "container": c.name, "volume_name": v.Name,
-										"mount_path": edv.mountPath}
+									labels := prometheus.Labels{
+										"pod_namespace": podNamespace,
+										"pod_name":      podName, "node_name": nodeName, "container": c.name, "volume_name": v.Name,
+										"mount_path": edv.mountPath,
+									}
 									// Convert used bytes to *bibyte since. Since the volume limit in the pod manifest is in *bibyte, but the
 									// Used bytes from the Kube API is not.
 									// multiply the digital storage value by 1.024
@@ -221,8 +224,10 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 	if cr.containerLimitsPercentage {
 		if okPodResult {
 			for _, c := range podResult.containers {
-				labels := prometheus.Labels{"pod_namespace": podNamespace,
-					"pod_name": podName, "node_name": nodeName, "container": c.name, "source": "node"}
+				labels := prometheus.Labels{
+					"pod_namespace": podNamespace,
+					"pod_name":      podName, "node_name": nodeName, "container": c.name, "source": "node",
+				}
 				if c.limit != 0 {
 					// Use limit if found.
 					// Convert used bytes to *bibyte since. Since the limit in the pod manifest is in *bibyte, but the
@@ -244,15 +249,19 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 	}
 
 	if cr.podUsage {
-		labels := prometheus.Labels{"pod_namespace": podNamespace,
-			"pod_name": podName, "node_name": nodeName}
+		labels := prometheus.Labels{
+			"pod_namespace": podNamespace,
+			"pod_name":      podName, "node_name": nodeName,
+		}
 		podGaugeVec.With(labels).Set(usedBytes)
 		log.Debug().Msg(fmt.Sprintf("pod %s/%s on %s with usedBytes: %f", podNamespace, podName, nodeName, usedBytes))
 	}
 
 	if cr.inodes {
-		labels := prometheus.Labels{"pod_namespace": podNamespace,
-			"pod_name": podName, "node_name": nodeName}
+		labels := prometheus.Labels{
+			"pod_namespace": podNamespace,
+			"pod_name":      podName, "node_name": nodeName,
+		}
 		inodesGaugeVec.With(labels).Set(inodes)
 		inodesFreeGaugeVec.With(labels).Set(inodesFree)
 		inodesUsedGaugeVec.With(labels).Set(inodesUsed)
@@ -262,6 +271,7 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 
 // Evicts exporter metrics by pod and container name
 func evictPodByName(p v1.Pod) {
+	start := time.Now()
 	podGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 	inodesGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 	inodesFreeGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
@@ -273,6 +283,13 @@ func evictPodByName(p v1.Pod) {
 		containerVolumeUsageVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
 		containerPercentageLimitsVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
 		containerPercentageVolumeLimitsVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
+	}
+	duration := time.Since(start)
+	if duration > 100*time.Millisecond {
+		log.Warn().
+			Str("pod", fmt.Sprintf("%s/%s", p.Namespace, p.Name)).
+			Dur("duration", duration).
+			Msg("Pod metrics eviction took longer than 100ms")
 	}
 }
 

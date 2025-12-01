@@ -129,6 +129,8 @@ func main() {
 	pprofEnabled, _ := strconv.ParseBool(dev.GetEnv("PPROF", "false"))
 	sampleInterval, _ = strconv.ParseInt(dev.GetEnv("SCRAPE_INTERVAL", "15"), 10, 64)
 	sampleIntervalMill = sampleInterval * 1000
+	readinessTimeoutSeconds, _ := strconv.Atoi(dev.GetEnv("READINESS_PROBE_TIMEOUT_SECONDS", "2"))
+	readinessTimeout := time.Duration(readinessTimeoutSeconds) * time.Second
 
 	dev.SetLogger()
 	dev.SetK8sClient()
@@ -148,8 +150,25 @@ func main() {
 		}
 	})
 
-	// Metrics endpoint
-	http.Handle("/metrics", promhttp.Handler())
+	// Metrics endpoint with timing middleware to diagnose slow responses
+	metricsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		promhttp.Handler().ServeHTTP(w, r)
+		duration := time.Since(start)
+
+		if duration > readinessTimeout {
+			log.Warn().
+				Dur("duration", duration).
+				Dur("timeout", readinessTimeout).
+				Msg("Metrics endpoint took longer than readiness probe timeout")
+		} else if duration > readinessTimeout/2 {
+			log.Info().
+				Dur("duration", duration).
+				Dur("timeout", readinessTimeout).
+				Msg("Metrics endpoint response time approaching timeout")
+		}
+	})
+	http.Handle("/metrics", metricsHandler)
 	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s", port))
 	err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 	if err != nil {
