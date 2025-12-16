@@ -1,14 +1,18 @@
 package node
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
 	"github.com/rs/zerolog/log"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
 )
 
 var (
@@ -64,6 +68,12 @@ func NewCollector(sampleInterval int64) Node {
 	}
 	node.createMetrics()
 
+	gcEnabled, _ := strconv.ParseBool(dev.GetEnv("GC_ENABLED", "false"))
+	gcInterval, _ := strconv.ParseInt(dev.GetEnv("GC_INTERVAL", "5"), 10, 64)
+	if gcEnabled {
+		go node.gcMetrics(gcInterval)
+	}
+
 	if node.deployType != "Deployment" {
 		node.Set.Add(dev.GetEnv("CURRENT_NODE_NAME", ""))
 	} else {
@@ -71,4 +81,37 @@ func NewCollector(sampleInterval int64) Node {
 	}
 
 	return node
+}
+
+func (n Node) gcMetrics(interval int64) {
+	ticker := time.NewTicker(time.Duration(interval) * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			log.Info().Msgf("Starting GC for nodes")
+			nodes, err := dev.Clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				log.Error().Msgf("Error getting nodes: %v", err)
+				continue
+			}
+
+			// Create current node names
+			nodeNames := map[string]struct{}{}
+			for _, n := range nodes.Items {
+				nodeNames[n.Name] = struct{}{}
+			}
+
+			// Identify all nodes we have metrics for that no longer exist
+			for nodeName := range n.Set.Iter() {
+				if _, ok := nodeNames[nodeName]; !ok {
+					log.Info().Msgf("Garbage collector removing metrics for deleted node %s", nodeName)
+					n.evict(nodeName)
+					if n.scrapeFromKubelet {
+						n.KubeletEndpoint.Delete(nodeName)
+					}
+				}
+			}
+		}
+	}
 }

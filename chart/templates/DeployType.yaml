@@ -156,10 +156,17 @@ spec:
             - name: PPROF
               value: "{{ .Values.pprof }}"
               {{- end }}
+              {{- if .Values.metrics.gc_enabled }}
+            - name: GC_ENABLED
+              value: "{{ .Values.metrics.gc_enabled }}"
+              {{- end }}
+              {{- if .Values.metrics.gc_interval }}
+            - name: GC_INTERVAL
+              value: "{{ .Values.metrics.gc_interval }}"
+              {{- end }}
               {{- if eq .Values.deploy_type  "DaemonSet" }}
             - name: CURRENT_NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
               {{- end }}
-

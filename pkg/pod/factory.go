@@ -1,8 +1,14 @@
 package pod
 
 import (
+	"context"
 	"strconv"
 	"sync"
+	"time"
+
+	"github.com/rs/zerolog/log"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
 )
@@ -46,6 +52,12 @@ func NewCollector(sampleInterval int64) Collector {
 
 	c.createMetrics()
 
+	gcEnabled, _ := strconv.ParseBool(dev.GetEnv("GC_ENABLED", "false"))
+	gcInterval, _ := strconv.ParseInt(dev.GetEnv("GC_INTERVAL", "5"), 10, 64)
+	if gcEnabled {
+		go c.gcMetrics(gcInterval)
+	}
+
 	if containerLimitsPercentage || containerVolumeLimitsPercentage {
 		waitGroup.Add(1)
 		go c.initGetPodsData()
@@ -53,4 +65,51 @@ func NewCollector(sampleInterval int64) Collector {
 	}
 
 	return c
+}
+
+func (cr Collector) gcMetrics(interval int64) {
+	ticker := time.NewTicker(time.Duration(interval) * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			log.Info().Msgf("Starting GC for pods")
+			pods, err := dev.Clientset.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{})
+			if err != nil {
+				log.Error().Msgf("Error getting pods: %v", err)
+				continue
+			}
+
+			// Collect current pod names
+			podNames := map[string]struct{}{}
+			for _, p := range pods.Items {
+				podNames[p.Name] = struct{}{}
+			}
+
+			// Identify all pods we have metrics for that no longer exist
+			deletedPods := []string{}
+			cr.lookupMutex.RLock()
+			for k := range *cr.lookup {
+				if _, ok := podNames[k]; !ok {
+					deletedPods = append(deletedPods, k)
+				}
+			}
+			cr.lookupMutex.RUnlock()
+
+			// Remove metrics for deleted pods
+			cr.lookupMutex.Lock()
+			for _, podName := range deletedPods {
+				log.Info().Msgf("Garbage collector removing metrics for deleted pod %s", podName)
+				delete(*cr.lookup, podName)
+				evictPodByName(
+					v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: podName,
+						},
+					},
+				)
+			}
+			cr.lookupMutex.Unlock()
+		}
+	}
 }
