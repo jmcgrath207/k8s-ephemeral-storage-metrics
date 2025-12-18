@@ -129,7 +129,11 @@ func main() {
 	go getMetrics()
 	http.Handle("/metrics", promhttp.Handler())
 	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s", port))
-	err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
+	server := &http.Server{
+		Addr:              fmt.Sprintf(":%s", port),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	err := server.ListenAndServe()
 	if err != nil {
 		log.Error().Msg(fmt.Sprintf("Listener Failed : %s\n", err.Error()))
 		panic(err.Error())

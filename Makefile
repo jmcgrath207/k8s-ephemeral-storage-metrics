@@ -13,10 +13,18 @@ $(LOCALBIN):
 
 
 ginkgo:
-	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@v2.23.4
+	test -s $(LOCALBIN)/ginkgo || GOBIN=$(LOCALBIN) go install github.com/onsi/ginkgo/v2/ginkgo@v2.27.3
 
 crane:
 	test -s $(LOCALBIN)/crane || GOBIN=$(LOCALBIN) go install github.com/google/go-containerregistry/cmd/crane@latest
+
+govulncheck:
+	test -s $(LOCALBIN)/govulncheck || GOBIN=$(LOCALBIN) go install golang.org/x/vuln/cmd/govulncheck@latest
+	$(LOCALBIN)/govulncheck ./...
+
+gosec:
+	test -s $(LOCALBIN)/gosec || GOBIN=$(LOCALBIN) go install github.com/securego/gosec/v2/cmd/gosec@latest
+	$(LOCALBIN)/gosec ./...
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -55,7 +63,7 @@ minikube_scale_up:
 minikube_scale_down:
 	minikube node delete m02
 
-init: fmt vet
+init: fmt vet gosec
 
 deploy_debug: init
 	ENV='debug' ./scripts/deploy.sh
@@ -73,9 +81,6 @@ deploy_test: init
 	ENV='test' ./scripts/deploy.sh
 
 deploy_e2e: init test-helm-render ginkgo crane
-	ENV='e2e' ./scripts/deploy.sh
-
-deploy_e2e_dirty: init test-helm-render
 	ENV='e2e' ./scripts/deploy.sh
 
 deploy_many_pods:
