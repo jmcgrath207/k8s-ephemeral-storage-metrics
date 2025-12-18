@@ -70,8 +70,9 @@ func NewCollector(sampleInterval int64) Node {
 
 	gcEnabled, _ := strconv.ParseBool(dev.GetEnv("GC_ENABLED", "false"))
 	gcInterval, _ := strconv.ParseInt(dev.GetEnv("GC_INTERVAL", "5"), 10, 64)
+	gcBatchSize, _ := strconv.ParseInt(dev.GetEnv("GC_BATCH_SIZE", "500"), 10, 64)
 	if gcEnabled {
-		go node.gcMetrics(gcInterval)
+		go node.gcMetrics(gcInterval, gcBatchSize)
 	}
 
 	if node.deployType != "Deployment" {
@@ -83,32 +84,40 @@ func NewCollector(sampleInterval int64) Node {
 	return node
 }
 
-func (n Node) gcMetrics(interval int64) {
+func (n Node) gcMetrics(interval int64, batchSize int64) {
 	ticker := time.NewTicker(time.Duration(interval) * time.Minute)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			log.Info().Msgf("Starting GC for nodes")
-			nodes, err := dev.Clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-			if err != nil {
-				log.Error().Msgf("Error getting nodes: %v", err)
-				continue
-			}
+			log.Info().Msgf("Starting GC for nodes in batches of %d", batchSize)
+			paginationContinue := ""
+			for {
+				nodes, err := dev.Clientset.CoreV1().Nodes().List(
+					context.Background(),
+					metav1.ListOptions{
+						Limit:    batchSize,
+						Continue: paginationContinue,
+					})
+				if err != nil {
+					log.Error().Msgf("Error getting nodes: %v", err)
+					continue
+				}
 
-			// Create current node names
-			nodeNames := map[string]struct{}{}
-			for _, n := range nodes.Items {
-				nodeNames[n.Name] = struct{}{}
-			}
+				// Create current node names
+				nodeNames := map[string]struct{}{}
+				for _, n := range nodes.Items {
+					nodeNames[n.Name] = struct{}{}
+				}
 
-			// Identify all nodes we have metrics for that no longer exist
-			for nodeName := range n.Set.Iter() {
-				if _, ok := nodeNames[nodeName]; !ok {
-					log.Info().Msgf("Garbage collector removing metrics for deleted node %s", nodeName)
-					n.evict(nodeName)
-					if n.scrapeFromKubelet {
-						n.KubeletEndpoint.Delete(nodeName)
+				// Identify all nodes we have metrics for that no longer exist
+				for nodeName := range n.Set.Iter() {
+					if _, ok := nodeNames[nodeName]; !ok {
+						log.Info().Msgf("Garbage collector removing metrics for deleted node %s", nodeName)
+						n.evict(nodeName)
+						if n.scrapeFromKubelet {
+							n.KubeletEndpoint.Delete(nodeName)
+						}
 					}
 				}
 			}

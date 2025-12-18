@@ -164,6 +164,10 @@ spec:
             - name: GC_INTERVAL
               value: "{{ .Values.metrics.gc_interval }}"
               {{- end }}
+              {{- if .Values.metrics.gc_batch_size }}
+            - name: GC_BATCH_SIZE
+              value: "{{ .Values.metrics.gc_batch_size }}"
+              {{- end }}
               {{- if eq .Values.deploy_type  "DaemonSet" }}
             - name: CURRENT_NODE_NAME
               valueFrom:

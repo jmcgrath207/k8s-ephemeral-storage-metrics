@@ -50,6 +50,8 @@ metrics:
   gc_enabled: false
   # -- The interval, in minutes, to perform garbage collection
   gc_interval: 5
+  # -- The amount of resource to fetch from kubernetes at once when performing garbage collection
+  gc_batch_size: 500
 
 log_level: info
 # -- Set as Deployment for single controller to query all nodes or Daemonset
