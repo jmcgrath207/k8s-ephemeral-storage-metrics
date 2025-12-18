@@ -160,9 +160,13 @@ func (cr Collector) createMetrics() {
 func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName string, usedBytes float64, availableBytes float64, capacityBytes float64, inodes float64, inodesFree float64, inodesUsed float64, volumes []Volume) {
 
 	var setValue float64
-	cr.lookupMutex.RLock()
+	cr.lookupMutex.Lock()
 	podResult, okPodResult := (*cr.lookup)[podName]
-	cr.lookupMutex.RUnlock()
+	if !okPodResult {
+		// To ensure we can garbage collect pod metrics we need to make sure all are stored in lookup
+		(*cr.lookup)[podName] = pod{}
+	}
+	cr.lookupMutex.Unlock()
 
 	// TODO: something seems wrong about the metrics.
 	//		the volume capacityBytes is not reflected in this query

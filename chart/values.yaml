@@ -46,6 +46,10 @@ metrics:
   ephemeral_storage_node_percentage: true
   # -- Create the ephemeral_storage_adjusted_polling_rate metrics to report Adjusted Poll Rate in milliseconds. Typically used for testing.
   adjusted_polling_rate: false
+  # -- Enable garbage collection for metrics
+  gc_enabled: false
+  # -- The interval, in minutes, to perform garbage collection
+  gc_interval: 5
 
 log_level: info
 # -- Set as Deployment for single controller to query all nodes or Daemonset
