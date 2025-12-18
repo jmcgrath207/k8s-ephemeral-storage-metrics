@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -111,7 +112,12 @@ func EnablePprof() {
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-	err := http.ListenAndServe("localhost:6060", mux)
+	server := &http.Server{
+		Addr:              "localhost:6060",
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	err := server.ListenAndServe()
 	if err != nil {
 		log.Error().Msgf("Pprof could not start localhost:")
 	}
