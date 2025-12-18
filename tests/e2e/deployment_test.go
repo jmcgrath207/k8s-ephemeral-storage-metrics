@@ -292,6 +292,24 @@ func scaleDown() {
 
 }
 
+func deployManyPods() {
+	cmd := exec.Command("make", "deploy_many_pods")
+	cmd.Dir = "../.."
+
+	_, err := cmd.Output()
+	gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+}
+
+func destroyManyPods() {
+	cmd := exec.Command("make", "destroy_many_pods")
+	cmd.Dir = "../.."
+
+	_, err := cmd.Output()
+	gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+}
+
 var _ = ginkgo.Describe("Test Metrics\n", func() {
 
 	ginkgo.Context("Observe labels\n", func() {
@@ -386,6 +404,29 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 		ginkgo.Specify("\nScale Down test to make sure pods and nodes are evicted", func() {
 			scaleDown()
 			checkPrometheus(checkSlice, true)
+		})
+	})
+	ginkgo.Context("Test Garbage Collection\n", func() {
+		ginkgo.Specify("\nPod GC: Deploy pods, verify metrics exist, delete pods, verify metrics are garbage collected", func() {
+			// Deploy many pods to create metrics
+			deployManyPods()
+
+			// Verify metrics for many-pods namespace appear
+			manyPodsCheckSlice := []string{
+				"pod_namespace=\"many-pods\"",
+			}
+			checkPrometheus(manyPodsCheckSlice, false)
+
+			// Delete the many-pods deployment
+			destroyManyPods()
+
+			// Wait for GC to run (gc_interval is 1 minute, add buffer for safety)
+			// GC runs every 1 minute, so wait 90 seconds to ensure it runs at least once
+			ginkgo.GinkgoWriter.Printf("\nWaiting 90 seconds for garbage collection to remove pod metrics...\n")
+			time.Sleep(90 * time.Second)
+
+			// Verify metrics for many-pods namespace are removed
+			checkPrometheus(manyPodsCheckSlice, true)
 		})
 	})
 })

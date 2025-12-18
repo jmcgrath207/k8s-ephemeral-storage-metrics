@@ -62,6 +62,8 @@ function main() {
     "metrics.adjusted_polling_rate=true"
     "pprof=true"
     "prometheus.rules.enable=true"
+    "metrics.gc_interval=1"
+    "metrics.gc_enabled=true"
   )
 
   if [[ $ENV =~ "e2e" ]]; then

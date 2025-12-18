@@ -36,6 +36,10 @@ test-helm-render:
 	helm template --kube-version 1.29.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
 	helm template --kube-version 1.30.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
 	helm template --kube-version 1.31.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
+	helm template --kube-version 1.32.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
+	helm template --kube-version 1.33.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
+	helm template --kube-version 1.34.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
+	helm template --kube-version 1.35.0 ./chart -f ./chart/test-values.yaml 1> /dev/null
 
 minikube_new_virtualbox:
 	export PROMETHEUS_OPERATOR_VERSION=$(PROMETHEUS_OPERATOR_VERSION)
