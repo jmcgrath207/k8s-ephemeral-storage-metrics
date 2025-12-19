@@ -91,36 +91,48 @@ func (n Node) gcMetrics(interval int64, batchSize int64) {
 		select {
 		case <-ticker.C:
 			log.Info().Msgf("Starting GC for nodes in batches of %d", batchSize)
+			currentNodes := make(map[string]struct{})
 			paginationContinue := ""
+
 			for {
 				nodes, err := dev.Clientset.CoreV1().Nodes().List(
 					context.Background(),
 					metav1.ListOptions{
 						Limit:    batchSize,
 						Continue: paginationContinue,
-					})
+					},
+				)
 				if err != nil {
 					log.Error().Msgf("Error getting nodes: %v", err)
 					continue
 				}
 
-				// Create current node names
-				nodeNames := map[string]struct{}{}
+				// Collect pod names from this batch
 				for _, n := range nodes.Items {
-					nodeNames[n.Name] = struct{}{}
+					currentNodes[n.Name] = struct{}{}
 				}
 
-				// Identify all nodes we have metrics for that no longer exist
-				for nodeName := range n.Set.Iter() {
-					if _, ok := nodeNames[nodeName]; !ok {
-						log.Info().Msgf("Garbage collector removing metrics for deleted node %s", nodeName)
-						n.evict(nodeName)
-						if n.scrapeFromKubelet {
-							n.KubeletEndpoint.Delete(nodeName)
-						}
+				if nodes.Continue != "" {
+					paginationContinue = nodes.Continue
+				} else {
+					// All batches processed
+					break
+				}
+			}
+			log.Info().Msgf("Found %d current nodes in cluster", len(currentNodes))
+
+			// Identify all nodes we have metrics for that no longer exist
+			for nodeName := range n.Set.Iter() {
+				if _, ok := currentNodes[nodeName]; !ok {
+					log.Info().Msgf("Garbage collector removing metrics for deleted node %s", nodeName)
+					n.evict(nodeName)
+					if n.scrapeFromKubelet {
+						n.KubeletEndpoint.Delete(nodeName)
 					}
 				}
 			}
+
+			log.Info().Msgf("Node GC cycle completed")
 		}
 	}
 }
