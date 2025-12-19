@@ -79,7 +79,9 @@ func (cr Collector) gcMetrics(interval int64, batchSize int64) {
 		select {
 		case <-ticker.C:
 			log.Info().Msgf("Starting GC for pods in batches of %d", batchSize)
+			currentPods := make(map[string]struct{})
 			paginationContinue := ""
+
 			for {
 				pods, err := dev.Clientset.CoreV1().Pods("").List(
 					context.Background(),
@@ -87,26 +89,35 @@ func (cr Collector) gcMetrics(interval int64, batchSize int64) {
 				)
 				if err != nil {
 					log.Error().Msgf("Error getting pods: %v", err)
-					continue
+					// Exit this GC cycle on error
+					break
 				}
 
-				// Collect current pod names
-				podNames := make(map[string]struct{}, len(pods.Items))
+				// Collect pod names from this batch
 				for _, p := range pods.Items {
-					podNames[p.Name] = struct{}{}
+					currentPods[p.Name] = struct{}{}
 				}
 
-				// Identify all pods we have metrics for that no longer exist
-				deletedPods := make(map[string]struct{})
-				cr.lookupMutex.RLock()
-				for k := range *cr.lookup {
-					if _, ok := podNames[k]; !ok {
-						deletedPods[k] = struct{}{}
-					}
+				if pods.Continue != "" {
+					paginationContinue = pods.Continue
+				} else {
+					// All batches processed
+					break
 				}
-				cr.lookupMutex.RUnlock()
+			}
+			log.Info().Msgf("Found %d current pods in cluster", len(currentPods))
 
-				// Remove metrics for deleted pods
+			deletedPods := make(map[string]struct{})
+			cr.lookupMutex.RLock()
+			for podName := range *cr.lookup {
+				if _, exists := currentPods[podName]; !exists {
+					deletedPods[podName] = struct{}{}
+				}
+			}
+			cr.lookupMutex.RUnlock()
+			log.Info().Msgf("Found %d deleted pods to clean up", len(deletedPods))
+
+			if len(deletedPods) > 0 {
 				cr.lookupMutex.Lock()
 				for podName := range deletedPods {
 					log.Info().Msgf("Garbage collector removing metrics for deleted pod %s", podName)
@@ -120,14 +131,9 @@ func (cr Collector) gcMetrics(interval int64, batchSize int64) {
 					)
 				}
 				cr.lookupMutex.Unlock()
-
-				if pods.Continue != "" {
-					paginationContinue = pods.Continue
-				} else {
-					// We're done for now, waiting for the next tick
-					break
-				}
 			}
+
+			log.Info().Msgf("Pod GC cycle completed")
 		}
 	}
 }
