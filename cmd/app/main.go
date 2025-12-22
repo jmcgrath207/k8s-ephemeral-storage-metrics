@@ -47,7 +47,6 @@ type ephemeralStorageMetrics struct {
 }
 
 func setMetrics(nodeName string) {
-
 	var data ephemeralStorageMetrics
 
 	start := time.Now()
@@ -78,19 +77,32 @@ func setMetrics(nodeName string) {
 		Pod.SetMetrics(podName, podNamespace, nodeName, usedBytes, availableBytes, capacityBytes, inodes, inodesFree, inodesUsed, p.Volumes)
 	}
 
-	adjustTime := sampleIntervalMill - time.Now().Sub(start).Milliseconds()
+	adjustTime := sampleIntervalMill - time.Since(start).Milliseconds()
 	if adjustTime <= 0.0 {
 		log.Error().Msgf("Node %s: Polling Rate could not keep up. Adjust your Interval to a higher number than %d seconds", nodeName, sampleInterval)
 	}
 	if Node.AdjustedPollingRate {
 		node.AdjustedPollingRateGaugeVec.With(prometheus.Labels{"node_name": nodeName}).Set(float64(adjustTime))
 	}
-
 }
 
 func getMetrics() {
+	// Wait for pod initialization with a timeout to prevent deadlock
+	// If initialization takes too long, log a warning and continue anyway
+	initTimeout := time.Duration(sampleInterval*2) * time.Second
+	initDone := make(chan struct{})
 
-	Pod.WaitGroup.Wait()
+	go func() {
+		Pod.WaitGroup.Wait()
+		close(initDone)
+	}()
+
+	select {
+	case <-initDone:
+		log.Info().Msg("Pod initialization completed successfully")
+	case <-time.After(initTimeout):
+		log.Warn().Msgf("Pod initialization timed out after %v, continuing anyway. Metrics may be incomplete.", initTimeout)
+	}
 
 	p, _ := ants.NewPoolWithFunc(Node.MaxNodeQueryConcurrency, func(node interface{}) {
 		setMetrics(node.(string))
@@ -117,6 +129,8 @@ func main() {
 	pprofEnabled, _ := strconv.ParseBool(dev.GetEnv("PPROF", "false"))
 	sampleInterval, _ = strconv.ParseInt(dev.GetEnv("SCRAPE_INTERVAL", "15"), 10, 64)
 	sampleIntervalMill = sampleInterval * 1000
+	readinessTimeoutSeconds, _ := strconv.Atoi(dev.GetEnv("READINESS_PROBE_TIMEOUT_SECONDS", "2"))
+	readinessTimeout := time.Duration(readinessTimeoutSeconds) * time.Second
 
 	dev.SetLogger()
 	dev.SetK8sClient()
@@ -127,7 +141,34 @@ func main() {
 		go dev.EnablePprof()
 	}
 	go getMetrics()
-	http.Handle("/metrics", promhttp.Handler())
+
+	// Health check endpoint for readiness probe - responds immediately
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write([]byte("OK")); err != nil {
+			log.Error().Err(err).Msg("Failed to write health check response")
+		}
+	})
+
+	// Metrics endpoint with timing middleware to diagnose slow responses
+	metricsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		promhttp.Handler().ServeHTTP(w, r)
+		duration := time.Since(start)
+
+		if duration > readinessTimeout {
+			log.Warn().
+				Dur("duration", duration).
+				Dur("timeout", readinessTimeout).
+				Msg("Metrics endpoint took longer than readiness probe timeout")
+		} else if duration > readinessTimeout/2 {
+			log.Info().
+				Dur("duration", duration).
+				Dur("timeout", readinessTimeout).
+				Msg("Metrics endpoint response time approaching timeout")
+		}
+	})
+	http.Handle("/metrics", metricsHandler)
 	log.Info().Msg(fmt.Sprintf("Starting server listening on :%s", port))
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%s", port),
