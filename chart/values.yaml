@@ -115,6 +115,9 @@ priorityClassName:
 # -- Revision history limit for the Deployment
 revisionHistoryLimit: 10
 
+# -- Number of replicas for the Deployment
+replicas: 1
+
 # -- Service Account configuration
 serviceAccount:
   create: true

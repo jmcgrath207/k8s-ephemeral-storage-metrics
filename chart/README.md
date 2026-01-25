@@ -60,6 +60,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | rbac | object | `{"create":true}` | RBAC configuration |
 | resources | object | `{}` | Resource requests and limits for the container |
 | revisionHistoryLimit | int | `10` | Revision history limit for the Deployment |
+| replicas | int | `1` | Number of replicas for the Deployment |
 | serviceAccount | object | `{"create":true,"name":null}` | Service Account configuration |
 | serviceMonitor | object | `{"additionalLabels":{},"enable":true,"metricRelabelings":[],"podTargetLabels":[],"relabelings":[],"targetLabels":[]}` | Configure the Service Monitor |
 | serviceMonitor.additionalLabels | object | `{}` | Add labels to the ServiceMonitor.Spec |

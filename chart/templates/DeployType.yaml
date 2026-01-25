@@ -10,7 +10,7 @@ metadata:
   {{- end }}
 spec:
   {{- if eq .Values.deploy_type "Deployment" }}
-  replicas: 1
+  replicas: {{ .Values.replicas }}
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   {{- end }}
   selector:
