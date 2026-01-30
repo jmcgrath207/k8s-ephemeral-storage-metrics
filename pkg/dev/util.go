@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
@@ -54,11 +55,9 @@ func setScrapeFromKubelet(config *rest.Config) {
 }
 
 func SetK8sClient() {
-
-	config, err := rest.InClusterConfig()
+	config, err := getK8sConfig()
 	if err != nil {
-		log.Error().Msg("Failed to get rest config for in cluster client")
-		panic(err.Error())
+		panic(err)
 	}
 
 	scrapeFromKubelet, _ := strconv.ParseBool(GetEnv("SCRAPE_FROM_KUBELET", "false"))
@@ -82,6 +81,21 @@ func SetK8sClient() {
 	}
 	log.Debug().Msg("Successful got the in cluster client")
 
+}
+
+func getK8sConfig() (*rest.Config, error) {
+	if config, err := getK8sConfigFromEnv(); err == nil {
+		return config, nil
+	}
+	return rest.InClusterConfig()
+}
+
+func getK8sConfigFromEnv() (*rest.Config, error) {
+	path := os.Getenv("KUBECONFIG")
+	if path == "" {
+		return nil, fmt.Errorf("KUBECONFIG is not set")
+	}
+	return clientcmd.BuildConfigFromFlags("", path)
 }
 
 type LineInfoHook struct{}
