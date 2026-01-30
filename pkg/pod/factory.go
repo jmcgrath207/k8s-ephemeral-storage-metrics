@@ -2,6 +2,7 @@ package pod
 
 import (
 	"context"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -11,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
+	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/env"
 )
 
 var (
@@ -28,6 +30,11 @@ type Collector struct {
 	podUsage                        bool
 	WaitGroup                       *sync.WaitGroup
 	sampleInterval                  int64
+
+	listPodsWithCache bool
+
+	deployAsDaemonSet bool
+	currentNodeName   string
 }
 
 func NewCollector(sampleInterval int64) Collector {
@@ -42,6 +49,16 @@ func NewCollector(sampleInterval int64) Collector {
 	inodes, _ := strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_INODES", "false"))
 	lookup := make(map[string]pod)
 
+	listPodsWithCache, _ := strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_LIST_PODS_WITH_CACHE", "false"))
+
+	deployAsDaemonSet := env.DeployAsDaemonSet()
+	currentNodeName := env.CurrentNodeName()
+
+	if deployAsDaemonSet && currentNodeName == "" {
+		log.Error().Msg("CURRENT_NODE_NAME is not set, but deploy as DaemonSet")
+		os.Exit(1)
+	}
+
 	var c = Collector{
 		containerVolumeUsage:            containerVolumeUsage,
 		containerLimitsPercentage:       containerLimitsPercentage,
@@ -52,6 +69,11 @@ func NewCollector(sampleInterval int64) Collector {
 		podUsage:                        podUsage,
 		sampleInterval:                  sampleInterval,
 		WaitGroup:                       &waitGroup,
+
+		listPodsWithCache: listPodsWithCache,
+
+		deployAsDaemonSet: deployAsDaemonSet,
+		currentNodeName:   currentNodeName,
 	}
 
 	c.createMetrics()

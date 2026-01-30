@@ -2,14 +2,16 @@ package pod
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"time"
+
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
 	"github.com/rs/zerolog/log"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
-	"os"
-	"time"
 )
 
 type pod struct {
@@ -45,17 +47,39 @@ func (cr Collector) getPodData(p v1.Pod) {
 
 func (cr Collector) initGetPodsData() {
 	// Init Get List of all pods
-	pods, err := dev.Clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		log.Error().Msgf("Error getting pods: %v\n", err)
-		os.Exit(1)
+	listOpts := cr.getPodsListOptions()
+
+	allPods := make([]v1.Pod, 0, 500)
+	for {
+		pods, err := dev.Clientset.CoreV1().Pods("").List(context.TODO(), listOpts)
+		if err != nil {
+			log.Error().Msgf("Error getting pods: %v\n", err)
+			os.Exit(1)
+		}
+		allPods = append(allPods, pods.Items...)
+		if pods.Continue == "" {
+			break
+		}
+		listOpts.Continue = pods.Continue
 	}
 
-	for _, p := range pods.Items {
+	for _, p := range allPods {
 		cr.getPodData(p)
 	}
 	cr.WaitGroup.Done()
 
+}
+
+func (cr Collector) getPodsListOptions() metav1.ListOptions {
+	listOpts := metav1.ListOptions{}
+	if cr.listPodsWithCache {
+		listOpts.ResourceVersion = "0"
+	}
+	if cr.deployAsDaemonSet {
+		listOpts.FieldSelector = fmt.Sprintf("spec.nodeName=%s", cr.currentNodeName)
+	}
+	listOpts.Limit = 500
+	return listOpts
 }
 
 func (cr Collector) podWatch() {
