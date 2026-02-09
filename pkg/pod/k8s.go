@@ -86,7 +86,14 @@ func (cr Collector) podWatch() {
 	cr.WaitGroup.Wait()
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	sharedInformerFactory := informers.NewSharedInformerFactory(dev.Clientset, time.Duration(cr.sampleInterval)*time.Second)
+	var sharedInformerFactory informers.SharedInformerFactory
+	if cr.deployAsDaemonSet {
+		sharedInformerFactory = informers.NewSharedInformerFactoryWithOptions(dev.Clientset, time.Duration(cr.sampleInterval)*time.Second, informers.WithTweakListOptions(func(options *metav1.ListOptions) {
+			options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", cr.currentNodeName)
+		}))
+	} else {
+		sharedInformerFactory = informers.NewSharedInformerFactory(dev.Clientset, time.Duration(cr.sampleInterval)*time.Second)
+	}
 	podInformer := sharedInformerFactory.Core().V1().Pods().Informer()
 
 	// Define event handlers for Pod events
