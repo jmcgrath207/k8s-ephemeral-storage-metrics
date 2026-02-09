@@ -60,6 +60,8 @@ func SetK8sClient() {
 		panic(err)
 	}
 
+	config.UserAgent = "k8s-ephemeral-storage-metrics"
+
 	scrapeFromKubelet, _ := strconv.ParseBool(GetEnv("SCRAPE_FROM_KUBELET", "false"))
 	if scrapeFromKubelet {
 		setScrapeFromKubelet(config)
