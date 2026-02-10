@@ -50,9 +50,11 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | list_pods_with_cache | bool | `false` | Use Kubernetes api server cache for pod list requests (reduces api server pressure at scale) |
 | log_level | string | `"info"` |  |
 | max_node_concurrency | int | `10` | Max number of concurrent query requests to the kubernetes API. |
-| metrics | object | `{"adjusted_polling_rate":false,"ephemeral_storage_container_limit_percentage":true,"ephemeral_storage_container_volume_limit_percentage":true,"ephemeral_storage_container_volume_usage":true,"ephemeral_storage_inodes":true,"ephemeral_storage_node_available":true,"ephemeral_storage_node_capacity":true,"ephemeral_storage_node_percentage":true,"ephemeral_storage_pod_usage":true,"gc_batch_size":500,"gc_enabled":false,"gc_interval":5,"port":9100}` | Set metrics you want to enable |
+| metrics | object | `{"adjusted_polling_rate":false,"ephemeral_storage_container_limit_percentage":true,"ephemeral_storage_container_logs_usage":true,"ephemeral_storage_container_rootfs_usage":true,"ephemeral_storage_container_volume_limit_percentage":true,"ephemeral_storage_container_volume_usage":true,"ephemeral_storage_inodes":true,"ephemeral_storage_node_available":true,"ephemeral_storage_node_capacity":true,"ephemeral_storage_node_percentage":true,"ephemeral_storage_pod_usage":true,"gc_batch_size":500,"gc_enabled":false,"gc_interval":5,"port":9100}` | Set metrics you want to enable |
 | metrics.adjusted_polling_rate | bool | `false` | Create the ephemeral_storage_adjusted_polling_rate metrics to report Adjusted Poll Rate in milliseconds. Typically used for testing. |
 | metrics.ephemeral_storage_container_limit_percentage | bool | `true` | Percentage of ephemeral storage used by a container in a pod |
+| metrics.ephemeral_storage_container_logs_usage | bool | `true` | Current logs bytes used/available/capacity for a container in a pod |
+| metrics.ephemeral_storage_container_rootfs_usage | bool | `true` | Current rootfs bytes used/available/capacity for a container in a pod |
 | metrics.ephemeral_storage_container_volume_limit_percentage | bool | `true` | Percentage of ephemeral storage used by a container's volume in a pod |
 | metrics.ephemeral_storage_container_volume_usage | bool | `true` | Current ephemeral storage used by a container's volume in a pod |
 | metrics.ephemeral_storage_inodes | bool | `true` | Current ephemeral inode usage of pod |

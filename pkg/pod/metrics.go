@@ -15,16 +15,37 @@ var (
 	containerVolumeUsageVec            *prometheus.GaugeVec
 	containerPercentageLimitsVec       *prometheus.GaugeVec
 	containerPercentageVolumeLimitsVec *prometheus.GaugeVec
+	containerRootfsUsedBytesVec        *prometheus.GaugeVec
+	containerRootfsAvailableBytesVec   *prometheus.GaugeVec
+	containerRootfsCapacityBytesVec    *prometheus.GaugeVec
+	containerLogsUsedBytesVec          *prometheus.GaugeVec
+	containerLogsAvailableBytesVec     *prometheus.GaugeVec
+	containerLogsCapacityBytesVec      *prometheus.GaugeVec
 	inodesGaugeVec                     *prometheus.GaugeVec
 	inodesFreeGaugeVec                 *prometheus.GaugeVec
 	inodesUsedGaugeVec                 *prometheus.GaugeVec
 )
+
+type FsStats struct {
+	AvailableBytes float64 `json:"availableBytes"`
+	CapacityBytes  float64 `json:"capacityBytes"`
+	UsedBytes      float64 `json:"usedBytes"`
+	Inodes         float64 `json:"inodes"`
+	InodesFree     float64 `json:"inodesFree"`
+	InodesUsed     float64 `json:"inodesUsed"`
+}
 
 type Volume struct {
 	AvailableBytes int64  `json:"availableBytes"`
 	CapacityBytes  int64  `json:"capacityBytes"`
 	UsedBytes      int    `json:"usedBytes"`
 	Name           string `json:"name"`
+}
+
+type ContainerStats struct {
+	Name   string  `json:"name"`
+	Rootfs FsStats `json:"rootfs"`
+	Logs   FsStats `json:"logs"`
 }
 
 func (cr Collector) createMetrics() {
@@ -109,6 +130,108 @@ func (cr Collector) createMetrics() {
 
 	prometheus.MustRegister(containerPercentageVolumeLimitsVec)
 
+	containerRootfsUsedBytesVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_rootfs_used_bytes",
+		Help: "Current rootfs bytes used by a container in a pod",
+	},
+		[]string{
+			// name of pod for Ephemeral Storage
+			"pod_name",
+			// namespace of pod for Ephemeral Storage
+			"pod_namespace",
+			// Name of Node where pod is placed.
+			"node_name",
+			// Name of container
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerRootfsUsedBytesVec)
+
+	containerRootfsAvailableBytesVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_rootfs_available_bytes",
+		Help: "Current rootfs bytes available to a container in a pod",
+	},
+		[]string{
+			// name of pod for Ephemeral Storage
+			"pod_name",
+			// namespace of pod for Ephemeral Storage
+			"pod_namespace",
+			// Name of Node where pod is placed.
+			"node_name",
+			// Name of container
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerRootfsAvailableBytesVec)
+
+	containerRootfsCapacityBytesVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_rootfs_capacity_bytes",
+		Help: "Current rootfs bytes capacity for a container in a pod",
+	},
+		[]string{
+			// name of pod for Ephemeral Storage
+			"pod_name",
+			// namespace of pod for Ephemeral Storage
+			"pod_namespace",
+			// Name of Node where pod is placed.
+			"node_name",
+			// Name of container
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerRootfsCapacityBytesVec)
+
+	containerLogsUsedBytesVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_logs_used_bytes",
+		Help: "Current logs bytes used by a container in a pod",
+	},
+		[]string{
+			// name of pod for Ephemeral Storage
+			"pod_name",
+			// namespace of pod for Ephemeral Storage
+			"pod_namespace",
+			// Name of Node where pod is placed.
+			"node_name",
+			// Name of container
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerLogsUsedBytesVec)
+
+	containerLogsAvailableBytesVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_logs_available_bytes",
+		Help: "Current logs bytes available to a container in a pod",
+	},
+		[]string{
+			// name of pod for Ephemeral Storage
+			"pod_name",
+			// namespace of pod for Ephemeral Storage
+			"pod_namespace",
+			// Name of Node where pod is placed.
+			"node_name",
+			// Name of container
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerLogsAvailableBytesVec)
+
+	containerLogsCapacityBytesVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_logs_capacity_bytes",
+		Help: "Current logs bytes capacity for a container in a pod",
+	},
+		[]string{
+			// name of pod for Ephemeral Storage
+			"pod_name",
+			// namespace of pod for Ephemeral Storage
+			"pod_namespace",
+			// Name of Node where pod is placed.
+			"node_name",
+			// Name of container
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerLogsCapacityBytesVec)
+
 	inodesGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ephemeral_storage_inodes",
 		Help: "Maximum number of inodes in the pod",
@@ -158,7 +281,7 @@ func (cr Collector) createMetrics() {
 	prometheus.MustRegister(inodesUsedGaugeVec)
 }
 
-func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName string, usedBytes float64, availableBytes float64, capacityBytes float64, inodes float64, inodesFree float64, inodesUsed float64, volumes []Volume) {
+func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName string, usedBytes float64, availableBytes float64, capacityBytes float64, inodes float64, inodesFree float64, inodesUsed float64, volumes []Volume, containers []ContainerStats) {
 
 	var setValue float64
 	cr.lookupMutex.Lock()
@@ -248,6 +371,26 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 		}
 	}
 
+	if cr.containerRootfsUsage {
+		for _, c := range containers {
+			labels := prometheus.Labels{"pod_namespace": podNamespace,
+				"pod_name": podName, "node_name": nodeName, "container": c.Name}
+			containerRootfsUsedBytesVec.With(labels).Set(c.Rootfs.UsedBytes)
+			containerRootfsAvailableBytesVec.With(labels).Set(c.Rootfs.AvailableBytes)
+			containerRootfsCapacityBytesVec.With(labels).Set(c.Rootfs.CapacityBytes)
+		}
+	}
+
+	if cr.containerLogsUsage {
+		for _, c := range containers {
+			labels := prometheus.Labels{"pod_namespace": podNamespace,
+				"pod_name": podName, "node_name": nodeName, "container": c.Name}
+			containerLogsUsedBytesVec.With(labels).Set(c.Logs.UsedBytes)
+			containerLogsAvailableBytesVec.With(labels).Set(c.Logs.AvailableBytes)
+			containerLogsCapacityBytesVec.With(labels).Set(c.Logs.CapacityBytes)
+		}
+	}
+
 	if cr.podUsage {
 		labels := prometheus.Labels{"pod_namespace": podNamespace,
 			"pod_name": podName, "node_name": nodeName}
@@ -272,6 +415,12 @@ func evictPodByName(p v1.Pod) {
 	inodesGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 	inodesFreeGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 	inodesUsedGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerRootfsUsedBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerRootfsAvailableBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerRootfsCapacityBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerLogsUsedBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerLogsAvailableBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerLogsCapacityBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 
 	// TODO: Look into removing this for loop and delete by pod_name
 	// e.g. containerVolumeUsageVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
@@ -295,4 +444,10 @@ func EvictPodByNode(deleteLabel *prometheus.Labels) {
 	containerVolumeUsageVec.DeletePartialMatch(*deleteLabel)
 	containerPercentageLimitsVec.DeletePartialMatch(*deleteLabel)
 	containerPercentageVolumeLimitsVec.DeletePartialMatch(*deleteLabel)
+	containerRootfsUsedBytesVec.DeletePartialMatch(*deleteLabel)
+	containerRootfsAvailableBytesVec.DeletePartialMatch(*deleteLabel)
+	containerRootfsCapacityBytesVec.DeletePartialMatch(*deleteLabel)
+	containerLogsUsedBytesVec.DeletePartialMatch(*deleteLabel)
+	containerLogsAvailableBytesVec.DeletePartialMatch(*deleteLabel)
+	containerLogsCapacityBytesVec.DeletePartialMatch(*deleteLabel)
 }
