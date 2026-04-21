@@ -14,6 +14,7 @@ import (
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
 	"github.com/rs/zerolog/log"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 )
@@ -99,7 +100,14 @@ func (n *Node) Watch() {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	// TODO: break out the sampleInterval into Groups. E.g. nodeSampleInterval, podSampleInterval, metricsSampleInterval
-	sharedInformerFactory := informers.NewSharedInformerFactory(dev.Clientset, time.Duration(n.sampleInterval)*time.Second)
+	var sharedInformerFactory informers.SharedInformerFactory
+	if n.nodeLabelSelector != "" {
+		sharedInformerFactory = informers.NewSharedInformerFactoryWithOptions(dev.Clientset, time.Duration(n.sampleInterval)*time.Second, informers.WithTweakListOptions(func(options *metav1.ListOptions) {
+			options.LabelSelector = n.nodeLabelSelector
+		}))
+	} else {
+		sharedInformerFactory = informers.NewSharedInformerFactory(dev.Clientset, time.Duration(n.sampleInterval)*time.Second)
+	}
 	nodeInformer := sharedInformerFactory.Core().V1().Nodes().Informer()
 
 	// Define event handlers for Pod events
