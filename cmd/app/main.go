@@ -47,6 +47,7 @@ type ephemeralStorageMetrics struct {
 }
 
 func setMetrics(nodeName string) {
+	defer Node.ReleaseInFlight(nodeName)
 
 	var data ephemeralStorageMetrics
 
@@ -102,7 +103,12 @@ func getMetrics() {
 		nodeSlice := Node.Set.ToSlice()
 
 		for _, node := range nodeSlice {
-			_ = p.Invoke(node)
+			if !Node.TryAcquireInFlight(node) {
+				continue
+			}
+			if err := p.Invoke(node); err != nil {
+				Node.ReleaseInFlight(node)
+			}
 		}
 
 		time.Sleep(time.Duration(sampleInterval) * time.Second)

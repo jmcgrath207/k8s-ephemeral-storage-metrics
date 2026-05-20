@@ -33,6 +33,10 @@ type Node struct {
 	Set                     mapset.Set[string]
 	KubeletEndpoint         *sync.Map // key=nodeName val=kubeletEndpoint
 	WaitGroup               *sync.WaitGroup
+	inFlight                *sync.Map          // tracks nodes currently being queried
+	failureCooldown         *sync.Map          // key=nodeName val=time.Time of last failure
+	cooldownMultiplier      int64              // multiplier for sampleInterval to compute cooldown duration
+	timeNow                 func() time.Time   // injectable clock for testing
 }
 
 func NewCollector(sampleInterval int64) Node {
@@ -46,6 +50,10 @@ func NewCollector(sampleInterval int64) Node {
 	scrapeFromKubelet, _ := strconv.ParseBool(dev.GetEnv("SCRAPE_FROM_KUBELET", "false"))
 	kubeletReadOnlyPort, _ := strconv.Atoi(dev.GetEnv("KUBELET_READONLY_PORT", "0"))
 	nodeLabelSelector := dev.GetEnv("NODE_LABEL_SELECTOR", "")
+	cooldownMultiplier, _ := strconv.ParseInt(dev.GetEnv("FAILURE_COOLDOWN_MULTIPLIER", "3"), 10, 64)
+	if cooldownMultiplier <= 0 {
+		cooldownMultiplier = 3
+	}
 	set := mapset.NewSet[string]()
 	mp := &sync.Map{}
 
@@ -68,6 +76,10 @@ func NewCollector(sampleInterval int64) Node {
 		Set:                     set,
 		KubeletEndpoint:         mp,
 		WaitGroup:               &waitGroup,
+		inFlight:                &sync.Map{},
+		failureCooldown:         &sync.Map{},
+		cooldownMultiplier:      cooldownMultiplier,
+		timeNow:                 time.Now,
 	}
 	node.createMetrics()
 
@@ -79,12 +91,31 @@ func NewCollector(sampleInterval int64) Node {
 	}
 
 	if node.deployType != "Deployment" {
-		node.Set.Add(dev.GetEnv("CURRENT_NODE_NAME", ""))
+		currentNodeName := dev.GetEnv("CURRENT_NODE_NAME", "")
+		node.Set.Add(currentNodeName)
+		if node.scrapeFromKubelet {
+			node.initKubeletEndpoint(currentNodeName)
+		}
 	} else {
 		go node.Watch()
 	}
 
 	return node
+}
+
+func (n *Node) initKubeletEndpoint(nodeName string) {
+	nodeObj, err := dev.Clientset.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		log.Error().Msgf("Failed to get node %s for kubelet endpoint: %v", nodeName, err)
+		os.Exit(1)
+	}
+	ep := n.getKubeletEndpoint(nodeObj)
+	if ep == "" {
+		log.Error().Msgf("No internal IP found for node %s", nodeName)
+		os.Exit(1)
+	}
+	n.KubeletEndpoint.Store(nodeName, ep)
+	log.Info().Msgf("Kubelet endpoint for node %s: %s", nodeName, ep)
 }
 
 func (n Node) gcMetrics(interval int64, batchSize int64) {
@@ -130,6 +161,7 @@ func (n Node) gcMetrics(interval int64, batchSize int64) {
 				if _, ok := currentNodes[nodeName]; !ok {
 					log.Info().Msgf("Garbage collector removing metrics for deleted node %s", nodeName)
 					n.evict(nodeName)
+					n.ClearCooldown(nodeName)
 					if n.scrapeFromKubelet {
 						n.KubeletEndpoint.Delete(nodeName)
 					}

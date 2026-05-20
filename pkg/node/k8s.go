@@ -51,7 +51,7 @@ func (n *Node) Query(node string) ([]byte, error) {
 	operation := func() error {
 		var resp *http.Response
 		var err error
-		if !n.scrapeFromKubelet || n.deployType != "Deployment" {
+		if !n.scrapeFromKubelet {
 			content, err = dev.Clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", node)).DoRaw(context.Background())
 			if err != nil {
 				return err
@@ -86,12 +86,12 @@ func (n *Node) Query(node string) ([]byte, error) {
 
 	if err != nil {
 		log.Warn().Msg(fmt.Sprintf("Failed to fetched proxy stats from node: %s Error: %v", node, err))
-		// Assume the node status is not ready so evict all pods tracked by that node. The Update func in the Node Watcher
-		// will pick the node back up for monitoring again, once the kubelet status reports back ready.
-		n.evict(node)
+		n.RecordFailure(node)
+		n.suspendNode(node)
 		return nil, err
 	}
 
+	n.ClearCooldown(node)
 	return content, nil
 
 }
@@ -115,6 +115,10 @@ func (n *Node) Watch() {
 		AddFunc: func(obj interface{}) {
 			p := obj.(*v1.Node)
 			if checkKubeletStatus(&p.Status.Conditions) {
+				if n.IsInCooldown(p.Name) {
+					n.logCooldownSkip(p.Name)
+					return
+				}
 				n.Set.Add(p.Name)
 				if n.scrapeFromKubelet {
 					n.KubeletEndpoint.Store(p.Name, n.getKubeletEndpoint(p))
@@ -125,6 +129,10 @@ func (n *Node) Watch() {
 			p := newObj.(*v1.Node)
 			// Add nodes back that have changed readiness status.
 			if checkKubeletStatus(&p.Status.Conditions) {
+				if n.IsInCooldown(p.Name) {
+					n.logCooldownSkip(p.Name)
+					return
+				}
 				n.Set.Add(p.Name)
 				if n.scrapeFromKubelet {
 					n.KubeletEndpoint.Store(p.Name, n.getKubeletEndpoint(p))
@@ -134,6 +142,7 @@ func (n *Node) Watch() {
 		DeleteFunc: func(obj interface{}) {
 			p := obj.(*v1.Node)
 			n.evict(p.Name)
+			n.ClearCooldown(p.Name)
 			if n.scrapeFromKubelet {
 				n.KubeletEndpoint.Delete(p.Name)
 			}

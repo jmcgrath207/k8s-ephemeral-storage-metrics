@@ -105,3 +105,8 @@ func (n *Node) evict(node string) {
 	pod.EvictPodByNode(&deleteLabel)
 	log.Info().Msgf("Node %s does not exist or is unresponsive. Removed from monitoring", node)
 }
+
+func (n *Node) suspendNode(node string) {
+	n.Set.Remove(node)
+	log.Warn().Msgf("Node %s temporarily removed from polling due to query failure", node)
+}

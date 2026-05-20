@@ -282,6 +282,9 @@ func evictPodByName(p v1.Pod) {
 
 // EvictPodByNode Evicts exporter metrics by Node
 func EvictPodByNode(deleteLabel *prometheus.Labels) {
+	if podGaugeVec == nil {
+		return
+	}
 	podGaugeVec.DeletePartialMatch(*deleteLabel)
 	containerVolumeUsageVec.DeletePartialMatch(*deleteLabel)
 	containerPercentageLimitsVec.DeletePartialMatch(*deleteLabel)
