@@ -17,9 +17,10 @@ import (
 )
 
 var (
-	Clientset *kubernetes.Clientset
-	ClientRaw *http.Client
-	ClientAno *http.Client
+	Clientset          *kubernetes.Clientset
+	ClientRaw          *http.Client
+	ClientAno          *http.Client
+	UseAPIServerCache  bool
 )
 
 func GetEnv(key, fallback string) string {
@@ -61,6 +62,8 @@ func SetK8sClient() {
 	}
 
 	config.UserAgent = "k8s-ephemeral-storage-metrics"
+
+	UseAPIServerCache, _ = strconv.ParseBool(GetEnv("USE_API_SERVER_CACHE", "false"))
 
 	scrapeFromKubelet, _ := strconv.ParseBool(GetEnv("SCRAPE_FROM_KUBELET", "false"))
 	if scrapeFromKubelet {

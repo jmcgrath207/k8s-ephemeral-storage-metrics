@@ -67,12 +67,11 @@ func (cr Collector) initGetPodsData() {
 		cr.getPodData(p)
 	}
 	cr.WaitGroup.Done()
-
 }
 
 func (cr Collector) getPodsListOptions() metav1.ListOptions {
 	listOpts := metav1.ListOptions{}
-	if cr.listPodsWithCache {
+	if cr.listPodsWithCache || dev.UseAPIServerCache {
 		listOpts.ResourceVersion = "0"
 	}
 	if cr.deployAsDaemonSet {

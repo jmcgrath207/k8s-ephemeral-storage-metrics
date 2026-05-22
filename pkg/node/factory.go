@@ -104,7 +104,11 @@ func NewCollector(sampleInterval int64) Node {
 }
 
 func (n *Node) initKubeletEndpoint(nodeName string) {
-	nodeObj, err := dev.Clientset.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	getOpts := metav1.GetOptions{}
+	if dev.UseAPIServerCache {
+		getOpts.ResourceVersion = "0"
+	}
+	nodeObj, err := dev.Clientset.CoreV1().Nodes().Get(context.Background(), nodeName, getOpts)
 	if err != nil {
 		log.Error().Msgf("Failed to get node %s for kubelet endpoint: %v", nodeName, err)
 		os.Exit(1)
@@ -129,13 +133,17 @@ func (n Node) gcMetrics(interval int64, batchSize int64) {
 			paginationContinue := ""
 
 			for {
+				listOpts := metav1.ListOptions{
+					Limit:         batchSize,
+					Continue:      paginationContinue,
+					LabelSelector: n.nodeLabelSelector,
+				}
+				if dev.UseAPIServerCache {
+					listOpts.ResourceVersion = "0"
+				}
 				nodes, err := dev.Clientset.CoreV1().Nodes().List(
 					context.Background(),
-					metav1.ListOptions{
-						Limit:         batchSize,
-						Continue:      paginationContinue,
-						LabelSelector: n.nodeLabelSelector,
-					},
+					listOpts,
 				)
 				if err != nil {
 					log.Error().Msgf("Error getting nodes: %v", err)

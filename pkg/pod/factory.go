@@ -105,9 +105,13 @@ func (cr Collector) gcMetrics(interval int64, batchSize int64) {
 			paginationContinue := ""
 
 			for {
+				listOpts := metav1.ListOptions{Limit: batchSize, Continue: paginationContinue}
+				if dev.UseAPIServerCache {
+					listOpts.ResourceVersion = "0"
+				}
 				pods, err := dev.Clientset.CoreV1().Pods("").List(
 					context.Background(),
-					metav1.ListOptions{Limit: batchSize, Continue: paginationContinue},
+					listOpts,
 				)
 				if err != nil {
 					log.Error().Msgf("Error getting pods: %v", err)
