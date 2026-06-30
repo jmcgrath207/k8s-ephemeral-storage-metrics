@@ -106,7 +106,21 @@ func (cr Collector) podWatch() {
 			cr.getPodData(*p)
 		},
 		DeleteFunc: func(obj interface{}) {
-			p := obj.(*v1.Pod)
+			p, ok := obj.(*v1.Pod)
+			if !ok {
+				// On a missed delete the informer delivers a DeletedFinalStateUnknown
+				// tombstone rather than the *v1.Pod; unwrap it before use to avoid a panic.
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					log.Error().Msgf("podWatch: DeleteFunc got unexpected type %T", obj)
+					return
+				}
+				p, ok = tombstone.Obj.(*v1.Pod)
+				if !ok {
+					log.Error().Msgf("podWatch: tombstone held non-Pod %T", tombstone.Obj)
+					return
+				}
+			}
 			cr.lookupMutex.Lock()
 			delete(*cr.lookup, p.Name)
 			cr.lookupMutex.Unlock()
