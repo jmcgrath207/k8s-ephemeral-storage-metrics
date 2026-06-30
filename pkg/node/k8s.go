@@ -132,7 +132,21 @@ func (n *Node) Watch() {
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			p := obj.(*v1.Node)
+			p, ok := obj.(*v1.Node)
+			if !ok {
+				// On a missed delete the informer delivers a DeletedFinalStateUnknown
+				// tombstone rather than the *v1.Node; unwrap it before use to avoid a panic.
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					log.Error().Msgf("nodeWatch: DeleteFunc got unexpected type %T", obj)
+					return
+				}
+				p, ok = tombstone.Obj.(*v1.Node)
+				if !ok {
+					log.Error().Msgf("nodeWatch: tombstone held non-Node %T", tombstone.Obj)
+					return
+				}
+			}
 			n.evict(p.Name)
 			if n.scrapeFromKubelet {
 				n.KubeletEndpoint.Delete(p.Name)
