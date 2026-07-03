@@ -84,62 +84,67 @@ func (cr Collector) gcMetrics(interval int64, batchSize int64) {
 	for {
 		select {
 		case <-ticker.C:
-			log.Info().Msgf("Starting GC for pods in batches of %d", batchSize)
-			currentPods := make(map[string]struct{})
-			paginationContinue := ""
-
-			for {
-				pods, err := dev.Clientset.CoreV1().Pods("").List(
-					context.Background(),
-					metav1.ListOptions{Limit: batchSize, Continue: paginationContinue},
-				)
-				if err != nil {
-					log.Error().Msgf("Error getting pods: %v", err)
-					// Exit this GC cycle on error
-					break
-				}
-
-				// Collect pod names from this batch
-				for _, p := range pods.Items {
-					currentPods[p.Name] = struct{}{}
-				}
-
-				if pods.Continue != "" {
-					paginationContinue = pods.Continue
-				} else {
-					// All batches processed
-					break
-				}
-			}
-			log.Info().Msgf("Found %d current pods in cluster", len(currentPods))
-
-			deletedPods := make(map[string]struct{})
-			cr.lookupMutex.RLock()
-			for podName := range *cr.lookup {
-				if _, exists := currentPods[podName]; !exists {
-					deletedPods[podName] = struct{}{}
-				}
-			}
-			cr.lookupMutex.RUnlock()
-			log.Info().Msgf("Found %d deleted pods to clean up", len(deletedPods))
-
-			if len(deletedPods) > 0 {
-				cr.lookupMutex.Lock()
-				for podName := range deletedPods {
-					log.Info().Msgf("Garbage collector removing metrics for deleted pod %s", podName)
-					delete(*cr.lookup, podName)
-					evictPodByName(
-						v1.Pod{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: podName,
-							},
-						},
-					)
-				}
-				cr.lookupMutex.Unlock()
-			}
-
-			log.Info().Msgf("Pod GC cycle completed")
+			cr.runGC(batchSize)
 		}
 	}
+}
+
+// runGC is the inner GC logic, extracted for testability.
+func (cr Collector) runGC(batchSize int64) {
+	log.Info().Msgf("Starting GC for pods in batches of %d", batchSize)
+	currentPods := make(map[string]struct{})
+	paginationContinue := ""
+
+	for {
+		pods, err := dev.Clientset.CoreV1().Pods("").List(
+			context.Background(),
+			metav1.ListOptions{Limit: batchSize, Continue: paginationContinue},
+		)
+		if err != nil {
+			log.Error().Msgf("Error getting pods: %v", err)
+			// Exit this GC cycle on error
+			break
+		}
+
+		// Collect pod names from this batch
+		for _, p := range pods.Items {
+			currentPods[p.Name] = struct{}{}
+		}
+
+		if pods.Continue != "" {
+			paginationContinue = pods.Continue
+		} else {
+			// All batches processed
+			break
+		}
+	}
+	log.Info().Msgf("Found %d current pods in cluster", len(currentPods))
+
+	deletedPods := make(map[string]struct{})
+	cr.lookupMutex.RLock()
+	for podName := range *cr.lookup {
+		if _, exists := currentPods[podName]; !exists {
+			deletedPods[podName] = struct{}{}
+		}
+	}
+	cr.lookupMutex.RUnlock()
+	log.Info().Msgf("Found %d deleted pods to clean up", len(deletedPods))
+
+	if len(deletedPods) > 0 {
+		cr.lookupMutex.Lock()
+		for podName := range deletedPods {
+			log.Info().Msgf("Garbage collector removing metrics for deleted pod %s", podName)
+			delete(*cr.lookup, podName)
+			evictPodByName(
+				v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: podName,
+					},
+				},
+			)
+		}
+		cr.lookupMutex.Unlock()
+	}
+
+	log.Info().Msgf("Pod GC cycle completed")
 }

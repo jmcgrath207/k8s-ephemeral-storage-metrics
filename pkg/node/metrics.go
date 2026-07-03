@@ -17,7 +17,10 @@ var (
 )
 
 func (n *Node) createMetrics() {
-
+	// ponytail: idempotent guard for tests that call NewCollector multiple times
+	if nodeAvailableGaugeVec != nil {
+		return
+	}
 	nodeAvailableGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ephemeral_storage_node_available",
 		Help: "Available ephemeral storage for a node",

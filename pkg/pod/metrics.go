@@ -48,6 +48,10 @@ type ContainerStats struct {
 }
 
 func (cr Collector) createMetrics() {
+	// ponytail: idempotent guard for tests that call NewCollector multiple times
+	if podGaugeVec != nil {
+		return
+	}
 
 	podGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ephemeral_storage_pod_usage",

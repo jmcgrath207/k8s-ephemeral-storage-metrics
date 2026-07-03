@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	Clientset *kubernetes.Clientset
+	Clientset kubernetes.Interface
 	ClientRaw *http.Client
 	ClientAno *http.Client
 )

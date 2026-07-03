@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -51,7 +52,13 @@ func (n *Node) Query(node string) ([]byte, error) {
 		var resp *http.Response
 		var err error
 		if !n.scrapeFromKubelet || n.deployType != "Deployment" {
-			content, err = dev.Clientset.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", node)).DoRaw(context.Background())
+			// ponytail: type assertion to get RESTClient from concrete type. Interface doesn't expose it.
+			c, ok := dev.Clientset.(*kubernetes.Clientset)
+			if !ok {
+				err = fmt.Errorf("clientset is not *kubernetes.Clientset")
+				return err
+			}
+			content, err = c.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", node)).DoRaw(context.Background())
 			if err != nil {
 				return err
 			}
