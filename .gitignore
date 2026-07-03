@@ -89,3 +89,5 @@ fabric.properties
 # vendor/
 
 chart/k8s-ephemeral-storage-metrics-*.tgz
+
+bin/
