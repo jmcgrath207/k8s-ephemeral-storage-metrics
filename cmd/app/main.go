@@ -129,7 +129,7 @@ func main() {
 	pprofEnabled, _ := strconv.ParseBool(dev.GetEnv("PPROF", "false"))
 	sampleInterval, _ = strconv.ParseInt(dev.GetEnv("SCRAPE_INTERVAL", "15"), 10, 64)
 	sampleIntervalMill = sampleInterval * 1000
-	readinessTimeoutSeconds, _ := strconv.Atoi(dev.GetEnv("READINESS_PROBE_TIMEOUT_SECONDS", "2"))
+	readinessTimeoutSeconds, _ := strconv.Atoi(dev.GetEnv("READINESS_PROBE_TIMEOUT_SECONDS", "1"))
 	readinessTimeout := time.Duration(readinessTimeoutSeconds) * time.Second
 
 	dev.SetLogger()

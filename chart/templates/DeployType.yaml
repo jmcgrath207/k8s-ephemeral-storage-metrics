@@ -81,7 +81,7 @@ spec:
           readinessProbe:
             failureThreshold: 10
             httpGet:
-              path: /metrics
+              path: /health
               port: {{ .Values.metrics.port  }}
               scheme: HTTP
             periodSeconds: 10
