@@ -3,6 +3,7 @@ package pod
 import (
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
@@ -266,6 +267,7 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 
 // Evicts exporter metrics by pod and container name
 func evictPodByName(p v1.Pod) {
+	start := time.Now()
 	podGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 	inodesGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 	inodesFreeGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
@@ -277,6 +279,13 @@ func evictPodByName(p v1.Pod) {
 		containerVolumeUsageVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
 		containerPercentageLimitsVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
 		containerPercentageVolumeLimitsVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
+	}
+	duration := time.Since(start)
+	if duration > 100*time.Millisecond {
+		log.Warn().
+			Str("pod", fmt.Sprintf("%s/%s", p.Namespace, p.Name)).
+			Dur("duration", duration).
+			Msg("Pod metrics eviction took longer than 100ms")
 	}
 }
 
