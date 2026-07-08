@@ -41,6 +41,7 @@ type ephemeralStorageMetrics struct {
 			InodesFree     float64 `json:"inodesFree"`
 			InodesUsed     float64 `json:"inodesUsed"`
 		} `json:"ephemeral-storage"`
+		Containers []pod.ContainerStats `json:"containers,omitempty"`
 
 		Volumes []pod.Volume `json:"volume,omitempty"`
 	}
@@ -74,7 +75,7 @@ func setMetrics(nodeName string) {
 			continue
 		}
 		Node.SetMetrics(nodeName, availableBytes, capacityBytes)
-		Pod.SetMetrics(podName, podNamespace, nodeName, usedBytes, availableBytes, capacityBytes, inodes, inodesFree, inodesUsed, p.Volumes)
+		Pod.SetMetrics(podName, podNamespace, nodeName, usedBytes, availableBytes, capacityBytes, inodes, inodesFree, inodesUsed, p.Volumes, p.Containers)
 	}
 
 	adjustTime := sampleIntervalMill - time.Since(start).Milliseconds()

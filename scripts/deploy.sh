@@ -64,6 +64,8 @@ function main() {
     "prometheus.rules.enable=true"
     "metrics.gc_interval=1"
     "metrics.gc_enabled=true"
+    "metrics.ephemeral_storage_container_rootfs_usage=true"
+    "metrics.ephemeral_storage_container_logs_usage=true"
   )
 
   if [[ $ENV =~ "e2e" ]]; then
