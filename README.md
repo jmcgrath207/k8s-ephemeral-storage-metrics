@@ -39,12 +39,15 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | deploy_labels | object | `{}` | Set additional labels for the Deployment/Daemonset |
 | deploy_type | string | `"Deployment"` | Set as Deployment for single controller to query all nodes or Daemonset |
 | dev | object | `{"enabled":false,"grow":{"image":"ghcr.io/jmcgrath207/k8s-ephemeral-storage-grow-test:latest","imagePullPolicy":"IfNotPresent"},"shrink":{"image":"ghcr.io/jmcgrath207/k8s-ephemeral-storage-shrink-test:latest","imagePullPolicy":"IfNotPresent"}}` | For local development or testing that will deploy grow and shrink pods and debug service |
+| fullnameOverride | string | `""` | Override the full name of the chart |
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.imagePullSecrets | list | `[]` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
 | image.tag | string | `"1.19.2"` |  |
 | interval | int | `15` | Polling node rate for exporter |
+| kubeconfig | string | `""` | Path to kubeconfig file; leave empty for in-cluster config |
 | kubelet | object | `{"insecure":false,"readOnlyPort":0,"scrape":false}` | Scrape metrics through kubelet instead of kube api |
+| list_pods_with_cache | bool | `false` | Use Kubernetes api server cache for pod list requests (reduces api server pressure at scale) |
 | log_level | string | `"info"` |  |
 | max_node_concurrency | int | `10` | Max number of concurrent query requests to the kubernetes API. |
 | metrics | object | `{"adjusted_polling_rate":false,"ephemeral_storage_container_limit_percentage":true,"ephemeral_storage_container_volume_limit_percentage":true,"ephemeral_storage_container_volume_usage":true,"ephemeral_storage_inodes":true,"ephemeral_storage_node_available":true,"ephemeral_storage_node_capacity":true,"ephemeral_storage_node_percentage":true,"ephemeral_storage_pod_usage":true,"gc_batch_size":500,"gc_enabled":false,"gc_interval":5,"port":9100}` | Set metrics you want to enable |
@@ -61,7 +64,9 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | metrics.gc_enabled | bool | `false` | Enable garbage collection for metrics |
 | metrics.gc_interval | int | `5` | The interval, in minutes, to perform garbage collection |
 | metrics.port | int | `9100` | Adjust the metric port as needed (default 9100) |
+| nameOverride | string | `""` | Override the name of the chart |
 | nodeSelector | object | `{}` |  |
+| node_label_selector | string | `""` | Label selector to filter watched nodes in Deployment mode (e.g. type=virtual-kubelet) |
 | podAnnotations | object | `{}` |  |
 | podSecurityContext.runAsNonRoot | bool | `true` |  |
 | podSecurityContext.seccompProfile.type | string | `"RuntimeDefault"` |  |
@@ -91,6 +96,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | resources | object | `{}` | Resource requests and limits for the container |
 | revisionHistoryLimit | int | `10` | Revision history limit for the Deployment |
 | serviceAccount | object | `{"create":true,"name":null}` | Service Account configuration |
+| serviceAnnotations | object | `{}` | Annotations to add to the metrics Service |
 | serviceMonitor | object | `{"additionalLabels":{},"enable":true,"metricRelabelings":[],"podTargetLabels":[],"relabelings":[],"targetLabels":[]}` | Configure the Service Monitor |
 | serviceMonitor.additionalLabels | object | `{}` | Add labels to the ServiceMonitor.Spec |
 | serviceMonitor.metricRelabelings | list | `[]` | Set metricRelabelings as per https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#monitoring.coreos.com/v1.RelabelConfig |

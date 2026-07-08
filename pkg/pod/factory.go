@@ -2,6 +2,7 @@ package pod
 
 import (
 	"context"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -28,6 +29,11 @@ type Collector struct {
 	podUsage                        bool
 	WaitGroup                       *sync.WaitGroup
 	sampleInterval                  int64
+
+	listPodsWithCache bool
+
+	deployAsDaemonSet bool
+	currentNodeName   string
 }
 
 func NewCollector(sampleInterval int64) Collector {
@@ -42,6 +48,16 @@ func NewCollector(sampleInterval int64) Collector {
 	inodes, _ := strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_INODES", "false"))
 	lookup := make(map[string]pod)
 
+	listPodsWithCache, _ := strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_LIST_PODS_WITH_CACHE", "false"))
+
+	deployAsDaemonSet := dev.DeployAsDaemonSet()
+	currentNodeName := dev.CurrentNodeName()
+
+	if deployAsDaemonSet && currentNodeName == "" {
+		log.Error().Msg("CURRENT_NODE_NAME is not set, but deploy as DaemonSet")
+		os.Exit(1)
+	}
+
 	var c = Collector{
 		containerVolumeUsage:            containerVolumeUsage,
 		containerLimitsPercentage:       containerLimitsPercentage,
@@ -52,6 +68,11 @@ func NewCollector(sampleInterval int64) Collector {
 		podUsage:                        podUsage,
 		sampleInterval:                  sampleInterval,
 		WaitGroup:                       &waitGroup,
+
+		listPodsWithCache: listPodsWithCache,
+
+		deployAsDaemonSet: deployAsDaemonSet,
+		currentNodeName:   currentNodeName,
 	}
 
 	c.createMetrics()

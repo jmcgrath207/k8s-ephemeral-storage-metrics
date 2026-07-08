@@ -104,6 +104,18 @@ spec:
               value: "{{ .Values.client_go_burst }}"
             - name: LOG_LEVEL
               value: "{{ .Values.log_level }}"
+              {{- if .Values.list_pods_with_cache }}
+            - name: EPHEMERAL_STORAGE_LIST_PODS_WITH_CACHE
+              value: "{{ .Values.list_pods_with_cache }}"
+              {{- end }}
+              {{- if .Values.node_label_selector }}
+            - name: NODE_LABEL_SELECTOR
+              value: "{{ .Values.node_label_selector }}"
+              {{- end }}
+              {{- if .Values.kubeconfig }}
+            - name: KUBECONFIG
+              value: "{{ .Values.kubeconfig }}"
+              {{- end }}
               {{- if .Values.metrics.ephemeral_storage_pod_usage }}
             - name: EPHEMERAL_STORAGE_POD_USAGE
               value: "{{ .Values.metrics.ephemeral_storage_pod_usage }}"

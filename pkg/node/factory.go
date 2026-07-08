@@ -29,6 +29,7 @@ type Node struct {
 	sampleInterval          int64
 	scrapeFromKubelet       bool
 	kubeletReadOnlyPort     int
+	nodeLabelSelector       string
 	Set                     mapset.Set[string]
 	KubeletEndpoint         *sync.Map // key=nodeName val=kubeletEndpoint
 	WaitGroup               *sync.WaitGroup
@@ -44,6 +45,7 @@ func NewCollector(sampleInterval int64) Node {
 	maxNodeQueryConcurrency, _ := strconv.Atoi(dev.GetEnv("MAX_NODE_CONCURRENCY", "10"))
 	scrapeFromKubelet, _ := strconv.ParseBool(dev.GetEnv("SCRAPE_FROM_KUBELET", "false"))
 	kubeletReadOnlyPort, _ := strconv.Atoi(dev.GetEnv("KUBELET_READONLY_PORT", "0"))
+	nodeLabelSelector := dev.GetEnv("NODE_LABEL_SELECTOR", "")
 	set := mapset.NewSet[string]()
 	mp := &sync.Map{}
 
@@ -62,6 +64,7 @@ func NewCollector(sampleInterval int64) Node {
 		sampleInterval:          sampleInterval,
 		scrapeFromKubelet:       scrapeFromKubelet,
 		kubeletReadOnlyPort:     kubeletReadOnlyPort,
+		nodeLabelSelector:       nodeLabelSelector,
 		Set:                     set,
 		KubeletEndpoint:         mp,
 		WaitGroup:               &waitGroup,
@@ -98,8 +101,9 @@ func (n Node) gcMetrics(interval int64, batchSize int64) {
 				nodes, err := dev.Clientset.CoreV1().Nodes().List(
 					context.Background(),
 					metav1.ListOptions{
-						Limit:    batchSize,
-						Continue: paginationContinue,
+						Limit:         batchSize,
+						Continue:      paginationContinue,
+						LabelSelector: n.nodeLabelSelector,
 					},
 				)
 				if err != nil {

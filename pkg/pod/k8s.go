@@ -2,14 +2,16 @@ package pod
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"time"
+
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
 	"github.com/rs/zerolog/log"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
-	"os"
-	"time"
 )
 
 type pod struct {
@@ -45,24 +47,56 @@ func (cr Collector) getPodData(p v1.Pod) {
 
 func (cr Collector) initGetPodsData() {
 	// Init Get List of all pods
-	pods, err := dev.Clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		log.Error().Msgf("Error getting pods: %v\n", err)
-		os.Exit(1)
+	listOpts := cr.getPodsListOptions()
+
+	allPods := make([]v1.Pod, 0, 500)
+	for {
+		pods, err := dev.Clientset.CoreV1().Pods("").List(context.TODO(), listOpts)
+		if err != nil {
+			log.Error().Msgf("Error getting pods: %v\n", err)
+			os.Exit(1)
+		}
+		allPods = append(allPods, pods.Items...)
+		if pods.Continue == "" {
+			break
+		}
+		listOpts.Continue = pods.Continue
 	}
 
-	for _, p := range pods.Items {
+	for _, p := range allPods {
 		cr.getPodData(p)
 	}
 	cr.WaitGroup.Done()
 
 }
 
+func (cr Collector) getPodsListOptions() metav1.ListOptions {
+	listOpts := metav1.ListOptions{}
+	// ResourceVersion=0 serves from apiserver cache (avoids etcd read),
+	// reducing pressure at scale. Combined with Continue pagination the
+	// server may return a consistent snapshot from cache.
+	if cr.listPodsWithCache {
+		listOpts.ResourceVersion = "0"
+	}
+	if cr.deployAsDaemonSet {
+		listOpts.FieldSelector = fmt.Sprintf("spec.nodeName=%s", cr.currentNodeName)
+	}
+	listOpts.Limit = 500
+	return listOpts
+}
+
 func (cr Collector) podWatch() {
 	cr.WaitGroup.Wait()
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	sharedInformerFactory := informers.NewSharedInformerFactory(dev.Clientset, time.Duration(cr.sampleInterval)*time.Second)
+	var sharedInformerFactory informers.SharedInformerFactory
+	if cr.deployAsDaemonSet {
+		sharedInformerFactory = informers.NewSharedInformerFactoryWithOptions(dev.Clientset, time.Duration(cr.sampleInterval)*time.Second, informers.WithTweakListOptions(func(options *metav1.ListOptions) {
+			options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", cr.currentNodeName)
+		}))
+	} else {
+		sharedInformerFactory = informers.NewSharedInformerFactory(dev.Clientset, time.Duration(cr.sampleInterval)*time.Second)
+	}
 	podInformer := sharedInformerFactory.Core().V1().Pods().Informer()
 
 	// Define event handlers for Pod events
