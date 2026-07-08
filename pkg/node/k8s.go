@@ -113,7 +113,11 @@ func (n *Node) Watch() {
 	// Define event handlers for Pod events
 	eventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			p := obj.(*v1.Node)
+			p, ok := obj.(*v1.Node)
+			if !ok {
+				log.Error().Msgf("nodeWatch: AddFunc got unexpected type %T", obj)
+				return
+			}
 			if checkKubeletStatus(&p.Status.Conditions) {
 				n.Set.Add(p.Name)
 				if n.scrapeFromKubelet {
@@ -122,7 +126,11 @@ func (n *Node) Watch() {
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			p := newObj.(*v1.Node)
+			p, ok := newObj.(*v1.Node)
+			if !ok {
+				log.Error().Msgf("nodeWatch: UpdateFunc got unexpected type %T", newObj)
+				return
+			}
 			// Add nodes back that have changed readiness status.
 			if checkKubeletStatus(&p.Status.Conditions) {
 				n.Set.Add(p.Name)
@@ -132,7 +140,21 @@ func (n *Node) Watch() {
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			p := obj.(*v1.Node)
+			p, ok := obj.(*v1.Node)
+			if !ok {
+				// On a missed delete the informer delivers a DeletedFinalStateUnknown
+				// tombstone rather than the *v1.Node; unwrap it before use to avoid a panic.
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					log.Error().Msgf("nodeWatch: DeleteFunc got unexpected type %T", obj)
+					return
+				}
+				p, ok = tombstone.Obj.(*v1.Node)
+				if !ok {
+					log.Error().Msgf("nodeWatch: tombstone held non-Node %T", tombstone.Obj)
+					return
+				}
+			}
 			n.evict(p.Name)
 			if n.scrapeFromKubelet {
 				n.KubeletEndpoint.Delete(p.Name)
