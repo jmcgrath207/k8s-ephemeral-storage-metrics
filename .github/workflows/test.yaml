@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@v4
         with:
-          go-version: '1.25'
+          go-version: '1.26'
       - name: Run unit tests
         run: |
           go vet ./...
@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@v4
         with:
-          go-version: '1.25'
+          go-version: '1.26'
       - name: Install Minikube
         run: |
           wget https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
