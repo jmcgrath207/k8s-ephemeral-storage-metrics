@@ -21,18 +21,26 @@ var (
 	containerLogsUsedBytesVec          *prometheus.GaugeVec
 	containerLogsAvailableBytesVec     *prometheus.GaugeVec
 	containerLogsCapacityBytesVec      *prometheus.GaugeVec
+	containerRootfsUsagePercentageVec  *prometheus.GaugeVec
+	containerLogsUsagePercentageVec    *prometheus.GaugeVec
+	containerRootfsInodesVec           *prometheus.GaugeVec
+	containerRootfsInodesFreeVec       *prometheus.GaugeVec
+	containerRootfsInodesUsedVec       *prometheus.GaugeVec
+	containerLogsInodesVec             *prometheus.GaugeVec
+	containerLogsInodesFreeVec         *prometheus.GaugeVec
+	containerLogsInodesUsedVec         *prometheus.GaugeVec
 	inodesGaugeVec                     *prometheus.GaugeVec
 	inodesFreeGaugeVec                 *prometheus.GaugeVec
 	inodesUsedGaugeVec                 *prometheus.GaugeVec
 )
 
 type FsStats struct {
-	AvailableBytes float64 `json:"availableBytes"`
-	CapacityBytes  float64 `json:"capacityBytes"`
-	UsedBytes      float64 `json:"usedBytes"`
-	Inodes         float64 `json:"inodes"`
-	InodesFree     float64 `json:"inodesFree"`
-	InodesUsed     float64 `json:"inodesUsed"`
+	AvailableBytes int64 `json:"availableBytes"`
+	CapacityBytes  int64 `json:"capacityBytes"`
+	UsedBytes      int   `json:"usedBytes"`
+	Inodes         int64 `json:"inodes"`
+	InodesFree     int64 `json:"inodesFree"`
+	InodesUsed     int64 `json:"inodesUsed"`
 }
 
 type Volume struct {
@@ -232,6 +240,110 @@ func (cr Collector) createMetrics() {
 	)
 	prometheus.MustRegister(containerLogsCapacityBytesVec)
 
+	containerRootfsUsagePercentageVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_rootfs_usage_percentage",
+		Help: "Percentage of rootfs capacity used by a container in a pod",
+	},
+		[]string{
+			"pod_name",
+			"pod_namespace",
+			"node_name",
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerRootfsUsagePercentageVec)
+
+	containerLogsUsagePercentageVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_logs_usage_percentage",
+		Help: "Percentage of logs capacity used by a container in a pod",
+	},
+		[]string{
+			"pod_name",
+			"pod_namespace",
+			"node_name",
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerLogsUsagePercentageVec)
+
+	containerRootfsInodesVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_rootfs_inodes",
+		Help: "Maximum number of inodes in the container rootfs",
+	},
+		[]string{
+			"pod_name",
+			"pod_namespace",
+			"node_name",
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerRootfsInodesVec)
+
+	containerRootfsInodesFreeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_rootfs_inodes_free",
+		Help: "Number of free inodes in the container rootfs",
+	},
+		[]string{
+			"pod_name",
+			"pod_namespace",
+			"node_name",
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerRootfsInodesFreeVec)
+
+	containerRootfsInodesUsedVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_rootfs_inodes_used",
+		Help: "Number of used inodes in the container rootfs",
+	},
+		[]string{
+			"pod_name",
+			"pod_namespace",
+			"node_name",
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerRootfsInodesUsedVec)
+
+	containerLogsInodesVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_logs_inodes",
+		Help: "Maximum number of inodes in the container logs",
+	},
+		[]string{
+			"pod_name",
+			"pod_namespace",
+			"node_name",
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerLogsInodesVec)
+
+	containerLogsInodesFreeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_logs_inodes_free",
+		Help: "Number of free inodes in the container logs",
+	},
+		[]string{
+			"pod_name",
+			"pod_namespace",
+			"node_name",
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerLogsInodesFreeVec)
+
+	containerLogsInodesUsedVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "ephemeral_storage_container_logs_inodes_used",
+		Help: "Number of used inodes in the container logs",
+	},
+		[]string{
+			"pod_name",
+			"pod_namespace",
+			"node_name",
+			"container",
+		},
+	)
+	prometheus.MustRegister(containerLogsInodesUsedVec)
+
 	inodesGaugeVec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "ephemeral_storage_inodes",
 		Help: "Maximum number of inodes in the pod",
@@ -375,9 +487,17 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 		for _, c := range containers {
 			labels := prometheus.Labels{"pod_namespace": podNamespace,
 				"pod_name": podName, "node_name": nodeName, "container": c.Name}
-			containerRootfsUsedBytesVec.With(labels).Set(c.Rootfs.UsedBytes)
-			containerRootfsAvailableBytesVec.With(labels).Set(c.Rootfs.AvailableBytes)
-			containerRootfsCapacityBytesVec.With(labels).Set(c.Rootfs.CapacityBytes)
+			containerRootfsUsedBytesVec.With(labels).Set(float64(c.Rootfs.UsedBytes))
+			containerRootfsAvailableBytesVec.With(labels).Set(float64(c.Rootfs.AvailableBytes))
+			containerRootfsCapacityBytesVec.With(labels).Set(float64(c.Rootfs.CapacityBytes))
+			if c.Rootfs.CapacityBytes > 0 {
+				containerRootfsUsagePercentageVec.With(labels).Set(float64(c.Rootfs.UsedBytes) / float64(c.Rootfs.CapacityBytes) * 100.0)
+			}
+			if cr.inodes {
+				containerRootfsInodesVec.With(labels).Set(float64(c.Rootfs.Inodes))
+				containerRootfsInodesFreeVec.With(labels).Set(float64(c.Rootfs.InodesFree))
+				containerRootfsInodesUsedVec.With(labels).Set(float64(c.Rootfs.InodesUsed))
+			}
 		}
 	}
 
@@ -385,9 +505,17 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 		for _, c := range containers {
 			labels := prometheus.Labels{"pod_namespace": podNamespace,
 				"pod_name": podName, "node_name": nodeName, "container": c.Name}
-			containerLogsUsedBytesVec.With(labels).Set(c.Logs.UsedBytes)
-			containerLogsAvailableBytesVec.With(labels).Set(c.Logs.AvailableBytes)
-			containerLogsCapacityBytesVec.With(labels).Set(c.Logs.CapacityBytes)
+			containerLogsUsedBytesVec.With(labels).Set(float64(c.Logs.UsedBytes))
+			containerLogsAvailableBytesVec.With(labels).Set(float64(c.Logs.AvailableBytes))
+			containerLogsCapacityBytesVec.With(labels).Set(float64(c.Logs.CapacityBytes))
+			if c.Logs.CapacityBytes > 0 {
+				containerLogsUsagePercentageVec.With(labels).Set(float64(c.Logs.UsedBytes) / float64(c.Logs.CapacityBytes) * 100.0)
+			}
+			if cr.inodes {
+				containerLogsInodesVec.With(labels).Set(float64(c.Logs.Inodes))
+				containerLogsInodesFreeVec.With(labels).Set(float64(c.Logs.InodesFree))
+				containerLogsInodesUsedVec.With(labels).Set(float64(c.Logs.InodesUsed))
+			}
 		}
 	}
 
@@ -421,6 +549,14 @@ func evictPodByName(p v1.Pod) {
 	containerLogsUsedBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 	containerLogsAvailableBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 	containerLogsCapacityBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerRootfsUsagePercentageVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerLogsUsagePercentageVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerRootfsInodesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerRootfsInodesFreeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerRootfsInodesUsedVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerLogsInodesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerLogsInodesFreeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerLogsInodesUsedVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 
 	// TODO: Look into removing this for loop and delete by pod_name
 	// e.g. containerVolumeUsageVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
@@ -450,4 +586,12 @@ func EvictPodByNode(deleteLabel *prometheus.Labels) {
 	containerLogsUsedBytesVec.DeletePartialMatch(*deleteLabel)
 	containerLogsAvailableBytesVec.DeletePartialMatch(*deleteLabel)
 	containerLogsCapacityBytesVec.DeletePartialMatch(*deleteLabel)
+	containerRootfsUsagePercentageVec.DeletePartialMatch(*deleteLabel)
+	containerLogsUsagePercentageVec.DeletePartialMatch(*deleteLabel)
+	containerRootfsInodesVec.DeletePartialMatch(*deleteLabel)
+	containerRootfsInodesFreeVec.DeletePartialMatch(*deleteLabel)
+	containerRootfsInodesUsedVec.DeletePartialMatch(*deleteLabel)
+	containerLogsInodesVec.DeletePartialMatch(*deleteLabel)
+	containerLogsInodesFreeVec.DeletePartialMatch(*deleteLabel)
+	containerLogsInodesUsedVec.DeletePartialMatch(*deleteLabel)
 }

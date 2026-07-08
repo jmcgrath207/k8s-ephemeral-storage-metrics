@@ -4,7 +4,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 image:
-  repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-exporter
+  repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics
   tag: 1.19.2
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []

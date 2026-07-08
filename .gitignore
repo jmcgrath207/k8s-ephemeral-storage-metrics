@@ -94,3 +94,5 @@ chart/k8s-ephemeral-storage-metrics-*.tgz
 .vscode/
 /bin/
 .idea
+/tests/charts/observability/Chart.lock
+/tests/charts/observability/charts/
