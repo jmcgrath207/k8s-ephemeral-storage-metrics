@@ -72,6 +72,9 @@ func (cr Collector) initGetPodsData() {
 
 func (cr Collector) getPodsListOptions() metav1.ListOptions {
 	listOpts := metav1.ListOptions{}
+	// ResourceVersion=0 serves from apiserver cache (avoids etcd read),
+	// reducing pressure at scale. Combined with Continue pagination the
+	// server may return a consistent snapshot from cache.
 	if cr.listPodsWithCache {
 		listOpts.ResourceVersion = "0"
 	}

@@ -63,6 +63,12 @@ log_level: info
 deploy_type: Deployment
 # -- Set additional labels for the Deployment/Daemonset
 deploy_labels: {}
+# -- Use Kubernetes api server cache for pod list requests (reduces api server pressure at scale)
+list_pods_with_cache: false
+# -- Label selector to filter watched nodes in Deployment mode (e.g. type=virtual-kubelet)
+node_label_selector: ""
+# -- Path to kubeconfig file; leave empty for in-cluster config
+kubeconfig: ""
 # -- Set additional labels for the Pods
 pod_labels: {}
 # Note in testing, Kube API does not refresh faster than 10 seconds

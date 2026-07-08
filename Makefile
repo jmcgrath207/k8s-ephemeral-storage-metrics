@@ -34,6 +34,11 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
+.PHONY: test-unit
+test-unit: ## Run unit tests (excludes e2e which needs a cluster).
+	go vet ./...
+	go test ./pkg/... ./cmd/...
+
 helm-docs:
 	test -s $(LOCALBIN)/helm-docs || GOBIN=$(LOCALBIN) go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest
 	$(LOCALBIN)/helm-docs  --template-files "${GITROOT}/chart/README.md.gotmpl"

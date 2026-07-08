@@ -29,6 +29,14 @@ func GetEnv(key, fallback string) string {
 	return fallback
 }
 
+func DeployAsDaemonSet() bool {
+	return GetEnv("DEPLOY_TYPE", "DaemonSet") == "DaemonSet"
+}
+
+func CurrentNodeName() string {
+	return GetEnv("CURRENT_NODE_NAME", "")
+}
+
 func setScrapeFromKubelet(config *rest.Config) {
 
 	var err error
@@ -86,7 +94,11 @@ func SetK8sClient() {
 }
 
 func getK8sConfig() (*rest.Config, error) {
-	if config, err := getK8sConfigFromEnv(); err == nil {
+	config, err := getK8sConfigFromEnv()
+	if err != nil {
+		return nil, fmt.Errorf("KUBECONFIG set but invalid: %w", err)
+	}
+	if config != nil {
 		return config, nil
 	}
 	return rest.InClusterConfig()
@@ -95,7 +107,7 @@ func getK8sConfig() (*rest.Config, error) {
 func getK8sConfigFromEnv() (*rest.Config, error) {
 	path := os.Getenv("KUBECONFIG")
 	if path == "" {
-		return nil, fmt.Errorf("KUBECONFIG is not set")
+		return nil, nil
 	}
 	return clientcmd.BuildConfigFromFlags("", path)
 }

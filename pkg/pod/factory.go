@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
-	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/env"
 )
 
 var (
@@ -51,8 +50,8 @@ func NewCollector(sampleInterval int64) Collector {
 
 	listPodsWithCache, _ := strconv.ParseBool(dev.GetEnv("EPHEMERAL_STORAGE_LIST_PODS_WITH_CACHE", "false"))
 
-	deployAsDaemonSet := env.DeployAsDaemonSet()
-	currentNodeName := env.CurrentNodeName()
+	deployAsDaemonSet := dev.DeployAsDaemonSet()
+	currentNodeName := dev.CurrentNodeName()
 
 	if deployAsDaemonSet && currentNodeName == "" {
 		log.Error().Msg("CURRENT_NODE_NAME is not set, but deploy as DaemonSet")
