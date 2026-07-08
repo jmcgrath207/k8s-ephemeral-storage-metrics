@@ -104,6 +104,9 @@ resources: {}
 
 podAnnotations: {}
 
+# -- Annotations to add to the metrics Service
+serviceAnnotations: {}
+
 nodeSelector: {}
 
 affinity: {}
