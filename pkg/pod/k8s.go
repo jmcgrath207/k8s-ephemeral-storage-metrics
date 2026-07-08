@@ -102,7 +102,11 @@ func (cr Collector) podWatch() {
 	// Define event handlers for Pod events
 	eventHandler := cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			p := newObj.(*v1.Pod)
+			p, ok := newObj.(*v1.Pod)
+			if !ok {
+				log.Error().Msgf("podWatch: UpdateFunc got unexpected type %T", newObj)
+				return
+			}
 			cr.getPodData(*p)
 		},
 		DeleteFunc: func(obj interface{}) {

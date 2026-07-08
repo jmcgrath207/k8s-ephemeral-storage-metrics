@@ -113,7 +113,11 @@ func (n *Node) Watch() {
 	// Define event handlers for Pod events
 	eventHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			p := obj.(*v1.Node)
+			p, ok := obj.(*v1.Node)
+			if !ok {
+				log.Error().Msgf("nodeWatch: AddFunc got unexpected type %T", obj)
+				return
+			}
 			if checkKubeletStatus(&p.Status.Conditions) {
 				n.Set.Add(p.Name)
 				if n.scrapeFromKubelet {
@@ -122,7 +126,11 @@ func (n *Node) Watch() {
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			p := newObj.(*v1.Node)
+			p, ok := newObj.(*v1.Node)
+			if !ok {
+				log.Error().Msgf("nodeWatch: UpdateFunc got unexpected type %T", newObj)
+				return
+			}
 			// Add nodes back that have changed readiness status.
 			if checkKubeletStatus(&p.Status.Conditions) {
 				n.Set.Add(p.Name)
