@@ -71,7 +71,7 @@ spec:
           livenessProbe:
             failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
             httpGet:
-              path: /metrics
+              path: {{ .Values.probes.liveness.path }}
               port: {{ .Values.metrics.port  }}
               scheme: HTTP
             initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
@@ -81,7 +81,7 @@ spec:
           readinessProbe:
             failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
             httpGet:
-              path: /health
+              path: {{ .Values.probes.readiness.path }}
               port: {{ .Values.metrics.port  }}
               scheme: HTTP
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}

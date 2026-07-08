@@ -165,6 +165,8 @@ containerSecurityContext:
 probes:
   # -- Liveness probe configuration
   liveness:
+    # -- HTTP path used by the liveness probe
+    path: /metrics
     # -- Number of consecutive failures required to consider the container as not ready
     failureThreshold: 10
     # -- Delay before the first probe is initiated
@@ -177,6 +179,8 @@ probes:
     timeoutSeconds: 30
   # -- Readiness probe configuration
   readiness:
+    # -- HTTP path used by the readiness probe
+    path: /health
     # -- Number of consecutive failures required to consider the container as not ready
     failureThreshold: 10
     # -- How often to perform the probe
