@@ -92,3 +92,5 @@ chart/k8s-ephemeral-storage-metrics-*.tgz
 
 # vscode
 .vscode/
+/bin/
+.idea
