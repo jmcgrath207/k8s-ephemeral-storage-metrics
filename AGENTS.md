@@ -29,7 +29,7 @@ Project-local instructions for opencode agents working in this repo. Auto-loaded
 2. **Never remove a label from an existing metric.** Breaks PromQL `by(...)` aggregations.
 3. **Never change a metric type** (Gauge→Counter, etc.). Breaks PromQL functions.
 4. **Adding new metrics is OK** (additive). Follow naming: `ephemeral_storage_<scope>_<metric>_<unit>` where unit ∈ `{bytes, percentage, inodes}`.
-5. **Adding new labels to an existing metric is OK** (additive, backward compatible).
+5. **Adding new labels to an existing metric is OK** (additive, backward compatible) — but be wary. Each new label multiplies series count and raises Prometheus cardinality/memory cost. Do **not** mirror Kubernetes node/pod labels (`agentpool`, `nodegroup`, `zone`, `instance-type`, `node-role`, `os`, etc.) into exporter metrics — direct users to join `kube_node_labels` / `kube_pod_labels` from kube-state-metrics at query time instead. This keeps the exporter lean and sidesteps cloud-provider label-key naming debates.
 6. **Adding a new metric requires updating** `tests/e2e/deployment_test.go` `checkSlice` (Observe labels Context) so e2e asserts presence.
 
 ### Versioning (maintainer-only)
