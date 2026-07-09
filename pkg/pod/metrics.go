@@ -3,11 +3,13 @@ package pod
 import (
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -32,7 +34,25 @@ var (
 	inodesGaugeVec                     *prometheus.GaugeVec
 	inodesFreeGaugeVec                 *prometheus.GaugeVec
 	inodesUsedGaugeVec                 *prometheus.GaugeVec
+
+	// nodeTrackers holds per-node scrape-driven eviction state.
+	// Keyed by nodeName; value is *podTracker.
+	nodeTrackers sync.Map
+
+	// scrapeMissTolerance is the number of consecutive scrapes a pod
+	// can be missing from the stats summary before its metrics are evicted.
+	// Set in NewCollector from the SCRAPE_MISS_TOLERANCE env var.
+	scrapeMissTolerance int
 )
+
+// podTracker tracks which pods were seen on a node across scrapes.
+// On each scrape, pods present in the stats summary reset their miss count
+// to 0. Pods absent from the stats summary increment their miss count; when
+// it reaches scrapeMissTolerance, the pod's metrics are evicted.
+type podTracker struct {
+	mu       sync.Mutex
+	lastSeen map[string]int
+}
 
 type FsStats struct {
 	AvailableBytes int64 `json:"availableBytes"`
@@ -396,13 +416,9 @@ func (cr Collector) createMetrics() {
 func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName string, usedBytes float64, availableBytes float64, capacityBytes float64, inodes float64, inodesFree float64, inodesUsed float64, volumes []Volume, containers []ContainerStats) {
 
 	var setValue float64
-	cr.lookupMutex.Lock()
+	cr.lookupMutex.RLock()
 	podResult, okPodResult := (*cr.lookup)[podName]
-	if !okPodResult {
-		// To ensure we can garbage collect pod metrics we need to make sure all are stored in lookup
-		(*cr.lookup)[podName] = pod{}
-	}
-	cr.lookupMutex.Unlock()
+	cr.lookupMutex.RUnlock()
 
 	// TODO: something seems wrong about the metrics.
 	//		the volume capacityBytes is not reflected in this query
@@ -558,13 +574,9 @@ func evictPodByName(p v1.Pod) {
 	containerLogsInodesFreeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 	containerLogsInodesUsedVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 
-	// TODO: Look into removing this for loop and delete by pod_name
-	// e.g. containerVolumeUsageVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	for _, c := range p.Spec.Containers {
-		containerVolumeUsageVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
-		containerPercentageLimitsVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
-		containerPercentageVolumeLimitsVec.DeletePartialMatch(prometheus.Labels{"container": c.Name})
-	}
+	containerVolumeUsageVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerPercentageLimitsVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	containerPercentageVolumeLimitsVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
 	duration := time.Since(start)
 	if duration > 100*time.Millisecond {
 		log.Warn().
@@ -576,6 +588,9 @@ func evictPodByName(p v1.Pod) {
 
 // EvictPodByNode Evicts exporter metrics by Node
 func EvictPodByNode(deleteLabel *prometheus.Labels) {
+	if nodeName, ok := (*deleteLabel)["node_name"]; ok {
+		nodeTrackers.Delete(nodeName)
+	}
 	podGaugeVec.DeletePartialMatch(*deleteLabel)
 	containerVolumeUsageVec.DeletePartialMatch(*deleteLabel)
 	containerPercentageLimitsVec.DeletePartialMatch(*deleteLabel)
@@ -594,4 +609,41 @@ func EvictPodByNode(deleteLabel *prometheus.Labels) {
 	containerLogsInodesVec.DeletePartialMatch(*deleteLabel)
 	containerLogsInodesFreeVec.DeletePartialMatch(*deleteLabel)
 	containerLogsInodesUsedVec.DeletePartialMatch(*deleteLabel)
+}
+
+// EvictStalePods evicts metrics for pods on nodeName that have been absent
+// from the kubelet stats summary for scrapeMissTolerance consecutive scrapes.
+//
+// Each scrape passes the current set of pod names from the stats summary.
+// Pods present in the summary reset their miss count to 0. Pods absent
+// increment their miss count; when it reaches scrapeMissTolerance, the pod's
+// metrics are evicted and the pod is removed from the tracker.
+//
+// Query failures (node unreachable) do not call this function — the caller
+// returns early on error, so miss counts are not incremented spuriously.
+func EvictStalePods(nodeName string, currentPods []string) {
+	t, _ := nodeTrackers.LoadOrStore(nodeName, &podTracker{lastSeen: make(map[string]int)})
+	tracker := t.(*podTracker)
+
+	tracker.mu.Lock()
+	defer tracker.mu.Unlock()
+
+	currentSet := make(map[string]struct{}, len(currentPods))
+	for _, name := range currentPods {
+		currentSet[name] = struct{}{}
+		tracker.lastSeen[name] = 0
+	}
+
+	for podName, misses := range tracker.lastSeen {
+		if _, exists := currentSet[podName]; !exists {
+			misses++
+			if misses >= scrapeMissTolerance {
+				log.Info().Msgf("Scrape-driven eviction: pod %s on node %s missing %d scrapes, evicting", podName, nodeName, misses)
+				evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: podName}})
+				delete(tracker.lastSeen, podName)
+			} else {
+				tracker.lastSeen[podName] = misses
+			}
+		}
+	}
 }

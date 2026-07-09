@@ -61,6 +61,13 @@ func setMetrics(nodeName string) {
 	log.Debug().Msg(fmt.Sprintf("Fetched proxy stats from node : %s", nodeName))
 	_ = json.Unmarshal(content, &data)
 
+	// Evict pods absent from the stats summary for scrapeMissTolerance consecutive scrapes
+	currentPods := make([]string, 0, len(data.Pods))
+	for _, p := range data.Pods {
+		currentPods = append(currentPods, p.PodRef.Name)
+	}
+	pod.EvictStalePods(nodeName, currentPods)
+
 	for _, p := range data.Pods {
 		podName := p.PodRef.Name
 		podNamespace := p.PodRef.Namespace

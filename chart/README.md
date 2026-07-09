@@ -32,7 +32,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | list_pods_with_cache | bool | `false` | Use Kubernetes api server cache for pod list requests (reduces api server pressure at scale) |
 | log_level | string | `"info"` |  |
 | max_node_concurrency | int | `10` | Max number of concurrent query requests to the kubernetes API. |
-| metrics | object | `{"adjusted_polling_rate":false,"ephemeral_storage_container_limit_percentage":true,"ephemeral_storage_container_logs_usage":true,"ephemeral_storage_container_rootfs_usage":true,"ephemeral_storage_container_volume_limit_percentage":true,"ephemeral_storage_container_volume_usage":true,"ephemeral_storage_inodes":true,"ephemeral_storage_node_available":true,"ephemeral_storage_node_capacity":true,"ephemeral_storage_node_percentage":true,"ephemeral_storage_pod_usage":true,"gc_batch_size":500,"gc_enabled":false,"gc_interval":5,"port":9100}` | Set metrics you want to enable |
+| metrics | object | `{"adjusted_polling_rate":false,"ephemeral_storage_container_limit_percentage":true,"ephemeral_storage_container_logs_usage":true,"ephemeral_storage_container_rootfs_usage":true,"ephemeral_storage_container_volume_limit_percentage":true,"ephemeral_storage_container_volume_usage":true,"ephemeral_storage_inodes":true,"ephemeral_storage_node_available":true,"ephemeral_storage_node_capacity":true,"ephemeral_storage_node_percentage":true,"ephemeral_storage_pod_usage":true,"port":9100,"scrape_miss_tolerance":2}` | Set metrics you want to enable |
 | metrics.adjusted_polling_rate | bool | `false` | Create the ephemeral_storage_adjusted_polling_rate metrics to report Adjusted Poll Rate in milliseconds. Typically used for testing. |
 | metrics.ephemeral_storage_container_limit_percentage | bool | `true` | Percentage of ephemeral storage used by a container in a pod |
 | metrics.ephemeral_storage_container_logs_usage | bool | `true` | Current logs bytes used/available/capacity for a container in a pod |
@@ -44,10 +44,8 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | metrics.ephemeral_storage_node_capacity | bool | `true` | Capacity of ephemeral storage for a node |
 | metrics.ephemeral_storage_node_percentage | bool | `true` | Percentage of ephemeral storage used on a node |
 | metrics.ephemeral_storage_pod_usage | bool | `true` | Current ephemeral byte usage of pod |
-| metrics.gc_batch_size | int | `500` | The amount of resource to fetch from kubernetes at once when performing garbage collection |
-| metrics.gc_enabled | bool | `false` | Enable garbage collection for metrics |
-| metrics.gc_interval | int | `5` | The interval, in minutes, to perform garbage collection |
 | metrics.port | int | `9100` | Adjust the metric port as needed (default 9100) |
+| metrics.scrape_miss_tolerance | int | `2` | Number of consecutive scrapes a pod can be missing from the stats summary before its metrics are evicted |
 | nameOverride | string | `""` | Override the name of the chart |
 | nodeSelector | object | `{}` |  |
 | node_label_selector | string | `""` | Label selector to filter watched nodes in Deployment mode (e.g. type=virtual-kubelet) |

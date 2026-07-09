@@ -451,9 +451,9 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 			// Delete the many-pods deployment
 			destroyManyPods()
 
-			// Wait for GC to run (gc_interval is 1 minute, add buffer for safety)
-			// GC runs every 1 minute, so wait 90 seconds to ensure it runs at least once
-			ginkgo.GinkgoWriter.Printf("\nWaiting 90 seconds for garbage collection to remove pod metrics...\n")
+			// Wait for scrape-driven eviction: at interval=5s with tolerance=2, pods are evicted after ~15s.
+			// Wait 90 seconds for safety margin.
+			ginkgo.GinkgoWriter.Printf("\nWaiting 90 seconds for scrape-driven eviction to remove pod metrics...\n")
 			time.Sleep(90 * time.Second)
 
 			// Verify metrics for many-pods namespace are removed

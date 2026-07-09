@@ -62,8 +62,6 @@ function main() {
     "metrics.adjusted_polling_rate=true"
     "pprof=true"
     "prometheus.rules.enable=true"
-    "metrics.gc_interval=1"
-    "metrics.gc_enabled=true"
     "metrics.ephemeral_storage_container_rootfs_usage=true"
     "metrics.ephemeral_storage_container_logs_usage=true"
   )
