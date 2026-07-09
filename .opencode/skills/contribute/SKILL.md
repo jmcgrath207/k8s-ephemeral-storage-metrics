@@ -122,6 +122,20 @@ Why: e2e hardcodes `node_name="minikube"` in:
 
 If you need a kind-passing e2e, those regexes need an env var. Out of scope here.
 
+## Label cardinality
+
+Each metric label multiplies time-series count and raises Prometheus memory/ingestion cost. Keep the exporter's label surface minimal.
+
+**Do not mirror Kubernetes node/pod labels** (`agentpool`, `nodegroup`, `zone`, `instance-type`, `node-role`, `os`, ...) into exporter metrics. Direct users to join `kube_node_labels` / `kube_pod_labels` from [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics) at query time:
+
+```
+ephemeral_storage_node_percentage
+  * on (node_name) group_left(label_agentpool)
+    kube_node_labels{label_agentpool!=""}
+```
+
+This keeps the exporter lean, works for any node/pod label, and sidesteps cloud-provider label-key naming debates. See `AGENTS.md` rule #5 and issue #131 for precedent.
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
