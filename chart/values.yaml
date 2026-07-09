@@ -55,12 +55,8 @@ metrics:
   ephemeral_storage_node_percentage: true
   # -- Create the ephemeral_storage_adjusted_polling_rate metrics to report Adjusted Poll Rate in milliseconds. Typically used for testing.
   adjusted_polling_rate: false
-  # -- Enable garbage collection for metrics
-  gc_enabled: false
-  # -- The interval, in minutes, to perform garbage collection
-  gc_interval: 5
-  # -- The amount of resource to fetch from kubernetes at once when performing garbage collection
-  gc_batch_size: 500
+  # -- Number of consecutive scrapes a pod can be missing from the stats summary before its metrics are evicted
+  scrape_miss_tolerance: 2
 
 log_level: info
 # -- Set as Deployment for single controller to query all nodes or Daemonset

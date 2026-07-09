@@ -1,16 +1,13 @@
 package node
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strconv"
 	"sync"
-	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/rs/zerolog/log"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
 )
@@ -71,13 +68,6 @@ func NewCollector(sampleInterval int64) Node {
 	}
 	node.createMetrics()
 
-	gcEnabled, _ := strconv.ParseBool(dev.GetEnv("GC_ENABLED", "false"))
-	gcInterval, _ := strconv.ParseInt(dev.GetEnv("GC_INTERVAL", "5"), 10, 64)
-	gcBatchSize, _ := strconv.ParseInt(dev.GetEnv("GC_BATCH_SIZE", "500"), 10, 64)
-	if gcEnabled {
-		go node.gcMetrics(gcInterval, gcBatchSize)
-	}
-
 	if node.deployType != "Deployment" {
 		node.Set.Add(dev.GetEnv("CURRENT_NODE_NAME", ""))
 	} else {
@@ -85,58 +75,4 @@ func NewCollector(sampleInterval int64) Node {
 	}
 
 	return node
-}
-
-func (n Node) gcMetrics(interval int64, batchSize int64) {
-	ticker := time.NewTicker(time.Duration(interval) * time.Minute)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			log.Info().Msgf("Starting GC for nodes in batches of %d", batchSize)
-			currentNodes := make(map[string]struct{})
-			paginationContinue := ""
-
-			for {
-				nodes, err := dev.Clientset.CoreV1().Nodes().List(
-					context.Background(),
-					metav1.ListOptions{
-						Limit:         batchSize,
-						Continue:      paginationContinue,
-						LabelSelector: n.nodeLabelSelector,
-					},
-				)
-				if err != nil {
-					log.Error().Msgf("Error getting nodes: %v", err)
-					continue
-				}
-
-				// Collect pod names from this batch
-				for _, n := range nodes.Items {
-					currentNodes[n.Name] = struct{}{}
-				}
-
-				if nodes.Continue != "" {
-					paginationContinue = nodes.Continue
-				} else {
-					// All batches processed
-					break
-				}
-			}
-			log.Info().Msgf("Found %d current nodes in cluster", len(currentNodes))
-
-			// Identify all nodes we have metrics for that no longer exist
-			for nodeName := range n.Set.Iter() {
-				if _, ok := currentNodes[nodeName]; !ok {
-					log.Info().Msgf("Garbage collector removing metrics for deleted node %s", nodeName)
-					n.evict(nodeName)
-					if n.scrapeFromKubelet {
-						n.KubeletEndpoint.Delete(nodeName)
-					}
-				}
-			}
-
-			log.Info().Msgf("Node GC cycle completed")
-		}
-	}
 }

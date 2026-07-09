@@ -215,10 +215,18 @@ func TestRootfsLogsMetrics(t *testing.T) {
 	})
 
 	t.Run("eviction", func(t *testing.T) {
+		// Evict p3 (which has container volume/limit metrics from containerVolume_limits)
+		// and p1 (which has rootfs/logs metrics from set_values).
 		evictPodByName(v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "p1",
 				Namespace: "ns1",
+			},
+		})
+		evictPodByName(v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "p3",
+				Namespace: "ns3",
 			},
 		})
 
@@ -231,6 +239,9 @@ func TestRootfsLogsMetrics(t *testing.T) {
 			"ephemeral_storage_container_logs_inodes",
 			"ephemeral_storage_container_logs_inodes_free",
 			"ephemeral_storage_container_logs_inodes_used",
+			"ephemeral_storage_container_volume_usage",
+			"ephemeral_storage_container_limit_percentage",
+			"ephemeral_storage_container_volume_limit_percentage",
 		)
 		if err != nil {
 			t.Fatalf("GatherAndCount failed: %v", err)
@@ -238,5 +249,261 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		if count > 0 {
 			t.Errorf("expected 0 time series after eviction, got %d", count)
 		}
+	})
+
+	t.Run("scrapeDrivenEviction", func(t *testing.T) {
+		// Set tolerance to 2 for this test
+		prev := scrapeMissTolerance
+		scrapeMissTolerance = 2
+		defer func() { scrapeMissTolerance = prev }()
+
+		// Set metrics for p4 on n4 (uses already-registered vecs from top-level createMetrics)
+		cr4 := Collector{
+			containerRootfsUsage: true,
+			lookup:               &map[string]pod{},
+			lookupMutex:          &sync.RWMutex{},
+		}
+		containers := []ContainerStats{
+			{Name: "c1", Rootfs: FsStats{UsedBytes: 100, CapacityBytes: 1000}},
+		}
+		cr4.SetMetrics("p4", "ns4", "n4", 0, 0, 0, 0, 0, 0, nil, containers)
+
+		// Scrape 1: p4 present → miss count = 0
+		EvictStalePods("n4", []string{"p4"})
+
+		// Scrape 2: p4 missing → miss count = 1 (not yet evicted)
+		EvictStalePods("n4", nil)
+
+		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
+			"ephemeral_storage_container_rootfs_used_bytes",
+		)
+		if err != nil {
+			t.Fatalf("GatherAndCount failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 series after 1 miss, got %d", count)
+		}
+
+		// Scrape 3: p4 missing → miss count = 2 → evicted
+		EvictStalePods("n4", nil)
+
+		count, err = testutil.GatherAndCount(prometheus.DefaultGatherer,
+			"ephemeral_storage_container_rootfs_used_bytes",
+		)
+		if err != nil {
+			t.Fatalf("GatherAndCount failed: %v", err)
+		}
+		if count != 0 {
+			t.Errorf("expected 0 series after 2 misses (tolerance), got %d", count)
+		}
+	})
+
+	t.Run("scrapeDriven_resetOnReappearance", func(t *testing.T) {
+		// Miss count must reset when a pod reappears, not accumulate.
+		// Tolerance counts CONSECUTIVE misses only.
+		prev := scrapeMissTolerance
+		scrapeMissTolerance = 2
+		defer func() { scrapeMissTolerance = prev }()
+
+		cr5 := Collector{
+			containerRootfsUsage: true,
+			lookup:               &map[string]pod{},
+			lookupMutex:          &sync.RWMutex{},
+		}
+		containers := []ContainerStats{
+			{Name: "c1", Rootfs: FsStats{UsedBytes: 100, CapacityBytes: 1000}},
+		}
+		cr5.SetMetrics("p5", "ns5", "n5", 0, 0, 0, 0, 0, 0, nil, containers)
+
+		EvictStalePods("n5", []string{"p5"}) // miss=0
+		EvictStalePods("n5", nil)            // miss=1
+		EvictStalePods("n5", []string{"p5"}) // reset to 0
+		EvictStalePods("n5", nil)            // miss=1, NOT 2
+
+		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
+			"ephemeral_storage_container_rootfs_used_bytes",
+		)
+		if err != nil {
+			t.Fatalf("GatherAndCount failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 series (miss count reset on reappearance), got %d", count)
+		}
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p5"}})
+	})
+
+	t.Run("scrapeDriven_multiplePods", func(t *testing.T) {
+		// Only absent pods get miss increments; present pods reset to 0.
+		prev := scrapeMissTolerance
+		scrapeMissTolerance = 2
+		defer func() { scrapeMissTolerance = prev }()
+
+		cr := Collector{
+			containerRootfsUsage: true,
+			lookup:               &map[string]pod{},
+			lookupMutex:          &sync.RWMutex{},
+		}
+		containers := []ContainerStats{
+			{Name: "c1", Rootfs: FsStats{UsedBytes: 100, CapacityBytes: 1000}},
+		}
+		cr.SetMetrics("p6a", "ns6", "n6", 0, 0, 0, 0, 0, 0, nil, containers)
+		cr.SetMetrics("p6b", "ns6", "n6", 0, 0, 0, 0, 0, 0, nil, containers)
+
+		EvictStalePods("n6", []string{"p6a", "p6b"}) // both miss=0
+		EvictStalePods("n6", []string{"p6a"})        // p6b miss=1
+		EvictStalePods("n6", []string{"p6a"})        // p6b miss=2 → evicted
+
+		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
+			"ephemeral_storage_container_rootfs_used_bytes",
+		)
+		if err != nil {
+			t.Fatalf("GatherAndCount failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 (p6a survives, p6b evicted), got %d", count)
+		}
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p6a"}})
+	})
+
+	t.Run("scrapeDriven_nodeIsolation", func(t *testing.T) {
+		// Each node has its own tracker. Evicting on one node
+		// must not affect another node's pod.
+		prev := scrapeMissTolerance
+		scrapeMissTolerance = 2
+		defer func() { scrapeMissTolerance = prev }()
+
+		cr := Collector{
+			containerRootfsUsage: true,
+			lookup:               &map[string]pod{},
+			lookupMutex:          &sync.RWMutex{},
+		}
+		containers := []ContainerStats{
+			{Name: "c1", Rootfs: FsStats{UsedBytes: 100, CapacityBytes: 1000}},
+		}
+		cr.SetMetrics("p7", "ns7", "n7", 0, 0, 0, 0, 0, 0, nil, containers)
+		cr.SetMetrics("p8", "ns8", "n8", 0, 0, 0, 0, 0, 0, nil, containers)
+
+		EvictStalePods("n7", []string{"p7"}) // p7 tracked, miss=0
+		EvictStalePods("n7", nil)            // p7 miss=1
+		EvictStalePods("n7", nil)            // p7 miss=2 → evicted
+		EvictStalePods("n8", []string{"p8"})
+
+		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
+			"ephemeral_storage_container_rootfs_used_bytes",
+		)
+		if err != nil {
+			t.Fatalf("GatherAndCount failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 (p8 survives on n8, p7 evicted on n7), got %d", count)
+		}
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p7"}})
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p8"}})
+	})
+
+	t.Run("scrapeDriven_evictPodByNodeClearsTracker", func(t *testing.T) {
+		// EvictPodByNode must clear the per-node tracker so
+		// subsequent EvictStalePods starts fresh.
+		prev := scrapeMissTolerance
+		scrapeMissTolerance = 2
+		defer func() { scrapeMissTolerance = prev }()
+
+		cr := Collector{
+			containerRootfsUsage: true,
+			lookup:               &map[string]pod{},
+			lookupMutex:          &sync.RWMutex{},
+		}
+		containers := []ContainerStats{
+			{Name: "c1", Rootfs: FsStats{UsedBytes: 100, CapacityBytes: 1000}},
+		}
+		cr.SetMetrics("p9", "ns9", "n9", 0, 0, 0, 0, 0, 0, nil, containers)
+		EvictStalePods("n9", []string{"p9"})
+
+		deleteLabel := prometheus.Labels{"node_name": "n9"}
+		EvictPodByNode(&deleteLabel)
+
+		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
+			"ephemeral_storage_container_rootfs_used_bytes",
+		)
+		if err != nil {
+			t.Fatalf("GatherAndCount failed: %v", err)
+		}
+		if count != 0 {
+			t.Errorf("expected 0 after EvictPodByNode, got %d", count)
+		}
+
+		// New pod on same node gets a fresh tracker (no leftover state).
+		cr.SetMetrics("p9b", "ns9", "n9", 0, 0, 0, 0, 0, 0, nil, containers)
+		EvictStalePods("n9", []string{"p9b"})
+		EvictStalePods("n9", nil) // 1 miss, NOT evicted (tolerance=2)
+
+		count, err = testutil.GatherAndCount(prometheus.DefaultGatherer,
+			"ephemeral_storage_container_rootfs_used_bytes",
+		)
+		if err != nil {
+			t.Fatalf("GatherAndCount failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 (p9b fresh tracker, 1 miss not evicted), got %d", count)
+		}
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p9b"}})
+	})
+
+	t.Run("scrapeDriven_tolerance1", func(t *testing.T) {
+		prev := scrapeMissTolerance
+		scrapeMissTolerance = 1
+		defer func() { scrapeMissTolerance = prev }()
+
+		cr := Collector{
+			containerRootfsUsage: true,
+			lookup:               &map[string]pod{},
+			lookupMutex:          &sync.RWMutex{},
+		}
+		containers := []ContainerStats{
+			{Name: "c1", Rootfs: FsStats{UsedBytes: 100, CapacityBytes: 1000}},
+		}
+		cr.SetMetrics("p10", "ns10", "n10", 0, 0, 0, 0, 0, 0, nil, containers)
+
+		EvictStalePods("n10", []string{"p10"})
+		EvictStalePods("n10", nil) // miss=1 → evicted (tolerance=1)
+
+		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
+			"ephemeral_storage_container_rootfs_used_bytes",
+		)
+		if err != nil {
+			t.Fatalf("GatherAndCount failed: %v", err)
+		}
+		if count != 0 {
+			t.Errorf("expected 0 (tolerance=1, evicted after 1 miss), got %d", count)
+		}
+	})
+
+	t.Run("evictPodByName_crossPodSafety", func(t *testing.T) {
+		// Bug 2 fix: evicting pod A must NOT delete pod B's metrics
+		// when both share the same container name. Old code used
+		// DeletePartialMatch({"container": "c1"}) which deleted both.
+		cr := Collector{
+			containerRootfsUsage: true,
+			lookup:               &map[string]pod{},
+			lookupMutex:          &sync.RWMutex{},
+		}
+		containers := []ContainerStats{
+			{Name: "c1", Rootfs: FsStats{UsedBytes: 100, CapacityBytes: 1000}},
+		}
+		cr.SetMetrics("p11a", "ns11", "n11", 0, 0, 0, 0, 0, 0, nil, containers)
+		cr.SetMetrics("p11b", "ns11", "n11", 0, 0, 0, 0, 0, 0, nil, containers)
+
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p11a"}})
+
+		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
+			"ephemeral_storage_container_rootfs_used_bytes",
+		)
+		if err != nil {
+			t.Fatalf("GatherAndCount failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 (p11b survives, same container name), got %d", count)
+		}
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p11b"}})
 	})
 }

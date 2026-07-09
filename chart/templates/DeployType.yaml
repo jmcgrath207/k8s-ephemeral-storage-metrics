@@ -176,17 +176,9 @@ spec:
             - name: PPROF
               value: "{{ .Values.pprof }}"
               {{- end }}
-              {{- if .Values.metrics.gc_enabled }}
-            - name: GC_ENABLED
-              value: "{{ .Values.metrics.gc_enabled }}"
-              {{- end }}
-              {{- if .Values.metrics.gc_interval }}
-            - name: GC_INTERVAL
-              value: "{{ .Values.metrics.gc_interval }}"
-              {{- end }}
-              {{- if .Values.metrics.gc_batch_size }}
-            - name: GC_BATCH_SIZE
-              value: "{{ .Values.metrics.gc_batch_size }}"
+              {{- if .Values.metrics.scrape_miss_tolerance }}
+            - name: SCRAPE_MISS_TOLERANCE
+              value: "{{ .Values.metrics.scrape_miss_tolerance }}"
               {{- end }}
               {{- if eq .Values.deploy_type  "DaemonSet" }}
             - name: CURRENT_NODE_NAME
