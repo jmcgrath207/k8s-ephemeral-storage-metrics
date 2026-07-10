@@ -25,7 +25,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.imagePullSecrets | list | `[]` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.21.0"` |  |
+| image.tag | string | `"1.21.1"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | kubeconfig | string | `""` | Path to kubeconfig file; leave empty for in-cluster config |
 | kubelet | object | `{"insecure":false,"readOnlyPort":0,"scrape":false}` | Scrape metrics through kubelet instead of kube api |
