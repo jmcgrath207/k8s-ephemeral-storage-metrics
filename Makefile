@@ -68,6 +68,12 @@ minikube_scale_up:
 minikube_scale_down:
 	minikube node delete m02
 
+minikube_node2_stop:
+	docker stop minikube-m02
+
+minikube_node2_start:
+	docker start minikube-m02
+
 init: fmt vet gosec
 
 deploy_debug: init
