@@ -609,6 +609,9 @@ func EvictPodByNode(deleteLabel *prometheus.Labels) {
 	containerLogsInodesVec.DeletePartialMatch(*deleteLabel)
 	containerLogsInodesFreeVec.DeletePartialMatch(*deleteLabel)
 	containerLogsInodesUsedVec.DeletePartialMatch(*deleteLabel)
+	inodesGaugeVec.DeletePartialMatch(*deleteLabel)
+	inodesFreeGaugeVec.DeletePartialMatch(*deleteLabel)
+	inodesUsedGaugeVec.DeletePartialMatch(*deleteLabel)
 }
 
 // EvictStalePods evicts metrics for pods on nodeName that have been absent

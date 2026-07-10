@@ -195,9 +195,6 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		deleteLabel := prometheus.Labels{"node_name": "n2"}
 		EvictPodByNode(&deleteLabel)
 
-		// NOTE: EvictPodByNode does not clean pod-level inodesGaugeVec,
-		// inodesFreeGaugeVec, inodesUsedGaugeVec by node_name (known gap).
-		// podGaugeVec for p2 IS cleaned, but the 3 inode vecs are not.
 		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
 			"ephemeral_storage_pod_usage",
 			"ephemeral_storage_inodes",
@@ -207,10 +204,10 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GatherAndCount failed: %v", err)
 		}
-		// 3 remaining (inodes/inodesFree/inodesUsed for p1,n1 from set_values)
-		// + potentially 3 from p2,n2 if not cleaned by EvictPodByNode
-		if count != 6 {
-			t.Errorf("expected 6 (p1+n1 in 3 vecs + p2+n2 in 3 vecs), got %d", count)
+		// Expect 3: inodes/inodesFree/inodesUsed for p1,n1 (from set_values).
+		// p2,n2 inode series should be cleaned by EvictPodByNode.
+		if count != 3 {
+			t.Errorf("expected 3 (p1,n1 only), got %d — EvictPodByNode likely leaked inode metrics", count)
 		}
 	})
 
