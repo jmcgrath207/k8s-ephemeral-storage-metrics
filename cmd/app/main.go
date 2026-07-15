@@ -144,6 +144,7 @@ func main() {
 	dev.SetK8sClient()
 	Node = node.NewCollector(sampleInterval)
 	Pod = pod.NewCollector(sampleInterval)
+	Node.StartWatch()
 
 	if pprofEnabled {
 		go dev.EnablePprof()

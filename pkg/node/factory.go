@@ -70,9 +70,15 @@ func NewCollector(sampleInterval int64) Node {
 
 	if node.deployType != "Deployment" {
 		node.Set.Add(dev.GetEnv("CURRENT_NODE_NAME", ""))
-	} else {
-		go node.Watch()
 	}
 
 	return node
+}
+
+// StartWatch starts the node informer in Deployment mode after dependent
+// metrics are initialized.
+func (n *Node) StartWatch() {
+	if n.deployType == "Deployment" {
+		go n.Watch()
+	}
 }
