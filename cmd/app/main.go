@@ -24,6 +24,33 @@ var (
 	Pod                pod.Collector
 )
 
+// collectorDeps holds the constructor/wiring functions used to build the
+// node and pod collectors. It exists so tests can substitute recording
+// stand-ins and assert the startup call order deterministically, without
+// standing up a real Kubernetes client or Prometheus registry.
+type collectorDeps struct {
+	newNodeCollector func(int64) node.Node
+	newPodCollector  func(int64) pod.Collector
+	startNodeWatch   func(*node.Node)
+}
+
+var defaultCollectorDeps = collectorDeps{
+	newNodeCollector: node.NewCollector,
+	newPodCollector:  pod.NewCollector,
+	startNodeWatch:   (*node.Node).StartWatch,
+}
+
+// startCollectors wires the node and pod collectors, starting the node
+// watch only after both collectors have been constructed. The pod collector
+// must exist before the node watch begins, since a Deployment-mode watch
+// can deliver node delete events that evict pod metrics.
+func startCollectors(sampleInterval int64, deps collectorDeps) (node.Node, pod.Collector) {
+	n := deps.newNodeCollector(sampleInterval)
+	p := deps.newPodCollector(sampleInterval)
+	deps.startNodeWatch(&n)
+	return n, p
+}
+
 type ephemeralStorageMetrics struct {
 	Node struct {
 		NodeName string `json:"nodeName"`
@@ -142,9 +169,7 @@ func main() {
 
 	dev.SetLogger()
 	dev.SetK8sClient()
-	Node = node.NewCollector(sampleInterval)
-	Pod = pod.NewCollector(sampleInterval)
-	Node.StartWatch()
+	Node, Pod = startCollectors(sampleInterval, defaultCollectorDeps)
 
 	if pprofEnabled {
 		go dev.EnablePprof()

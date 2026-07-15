@@ -3,7 +3,6 @@ package node
 import (
 	"math"
 	"os"
-	"os/exec"
 	"sync"
 	"testing"
 	"time"
@@ -11,7 +10,6 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	dto "github.com/prometheus/client_model/go"
 
-	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/dev"
 	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/pod"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -215,22 +213,35 @@ func TestNode(t *testing.T) {
 }
 
 func TestNewCollectorDeploymentDefersWatch(t *testing.T) {
-	const helperEnv = "TEST_NEW_COLLECTOR_DEFERS_WATCH"
-	if os.Getenv(helperEnv) == "1" {
-		registry := prometheus.NewRegistry()
-		prometheus.DefaultRegisterer = registry
-		prometheus.DefaultGatherer = registry
-		dev.Clientset = nil
-		t.Setenv("DEPLOY_TYPE", "Deployment")
+	registry := prometheus.NewRegistry()
+	origRegisterer, origGatherer := prometheus.DefaultRegisterer, prometheus.DefaultGatherer
+	prometheus.DefaultRegisterer = registry
+	prometheus.DefaultGatherer = registry
+	t.Cleanup(func() {
+		prometheus.DefaultRegisterer = origRegisterer
+		prometheus.DefaultGatherer = origGatherer
+	})
 
-		_ = NewCollector(1)
-		time.Sleep(100 * time.Millisecond)
-		return
+	watched := make(chan struct{}, 1)
+	restore := SetWatchStarter(func(*Node) { watched <- struct{}{} })
+	t.Cleanup(restore)
+
+	t.Setenv("DEPLOY_TYPE", "Deployment")
+	n := NewCollector(1)
+
+	select {
+	case <-watched:
+		t.Fatal("NewCollector started the node watch before StartWatch was called")
+	case <-time.After(150 * time.Millisecond):
+		// expected: NewCollector must not begin watching on its own.
 	}
 
-	cmd := exec.Command(os.Args[0], "-test.run=^TestNewCollectorDeploymentDefersWatch$")
-	cmd.Env = append(os.Environ(), helperEnv+"=1")
-	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("NewCollector started the node watcher before pod initialization: %v\n%s", err, output)
+	n.StartWatch()
+
+	select {
+	case <-watched:
+		// expected: StartWatch wires up the watch loop.
+	case <-time.After(time.Second):
+		t.Fatal("StartWatch did not start the node watch within timeout")
 	}
 }

@@ -75,10 +75,26 @@ func NewCollector(sampleInterval int64) Node {
 	return node
 }
 
+// watchStarter is the function StartWatch uses to begin watching. It is a
+// package variable so tests can substitute a lightweight stand-in and
+// observe exactly when watching begins, instead of driving a real informer
+// against a Kubernetes API server.
+var watchStarter = func(n *Node) { n.Watch() }
+
+// SetWatchStarter overrides the function StartWatch uses to begin watching
+// and returns a func that restores the previous behavior. It exists so
+// tests can observe StartWatch invocations deterministically without
+// running a real informer.
+func SetWatchStarter(f func(n *Node)) (restore func()) {
+	prev := watchStarter
+	watchStarter = f
+	return func() { watchStarter = prev }
+}
+
 // StartWatch starts the node informer in Deployment mode after dependent
 // metrics are initialized.
 func (n *Node) StartWatch() {
 	if n.deployType == "Deployment" {
-		go n.Watch()
+		go watchStarter(n)
 	}
 }
