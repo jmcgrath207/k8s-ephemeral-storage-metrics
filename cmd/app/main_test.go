@@ -127,6 +127,16 @@ func TestEphemeralStorageMetricsUnmarshalMalformed(t *testing.T) {
 	}
 }
 
+func TestSetMetricsFromSummaryRejectsMalformedJSON(t *testing.T) {
+	err := setMetricsFromSummary("test-node", []byte(`{"pods": [`))
+	if err == nil {
+		t.Fatal("expected malformed stats summary to return an error")
+	}
+	if !strings.Contains(err.Error(), "decode stats summary") {
+		t.Fatalf("error = %q, want decode context", err)
+	}
+}
+
 func TestEphemeralStorageMetricsUnmarshalEmpty(t *testing.T) {
 	var data ephemeralStorageMetrics
 	if err := json.Unmarshal([]byte(`{}`), &data); err != nil {

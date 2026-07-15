@@ -47,19 +47,11 @@ type ephemeralStorageMetrics struct {
 	}
 }
 
-func setMetrics(nodeName string) {
+func setMetricsFromSummary(nodeName string, content []byte) error {
 	var data ephemeralStorageMetrics
-
-	start := time.Now()
-
-	content, err := Node.Query(nodeName)
-	// Skip node query if there is an error.
-	if err != nil {
-		return
+	if err := json.Unmarshal(content, &data); err != nil {
+		return fmt.Errorf("decode stats summary: %w", err)
 	}
-
-	log.Debug().Msg(fmt.Sprintf("Fetched proxy stats from node : %s", nodeName))
-	_ = json.Unmarshal(content, &data)
 
 	// Evict pods absent from the stats summary for scrapeMissTolerance consecutive scrapes
 	currentPods := make([]string, 0, len(data.Pods))
@@ -83,6 +75,24 @@ func setMetrics(nodeName string) {
 		}
 		Node.SetMetrics(nodeName, availableBytes, capacityBytes)
 		Pod.SetMetrics(podName, podNamespace, nodeName, usedBytes, availableBytes, capacityBytes, inodes, inodesFree, inodesUsed, p.Volumes, p.Containers)
+	}
+
+	return nil
+}
+
+func setMetrics(nodeName string) {
+	start := time.Now()
+
+	content, err := Node.Query(nodeName)
+	// Skip node query if there is an error.
+	if err != nil {
+		return
+	}
+
+	log.Debug().Msg(fmt.Sprintf("Fetched proxy stats from node : %s", nodeName))
+	if err := setMetricsFromSummary(nodeName, content); err != nil {
+		log.Warn().Err(err).Msgf("Failed to decode proxy stats from node: %s", nodeName)
+		return
 	}
 
 	adjustTime := sampleIntervalMill - time.Since(start).Milliseconds()
