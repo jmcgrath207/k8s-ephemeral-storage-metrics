@@ -69,7 +69,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.imagePullSecrets | list | `[]` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.21.1"` |  |
+| image.tag | string | `"1.21.2"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | kubeconfig | string | `""` | Path to kubeconfig file; leave empty for in-cluster config |
 | kubelet | object | `{"insecure":false,"readOnlyPort":0,"scrape":false}` | Scrape metrics through kubelet instead of kube api |
@@ -238,6 +238,9 @@ Then run ginkgo manually against [deployment_test.go](tests/e2e/deployment_test.
 ```bash
 make fmt vet test-unit test-helm-render
 ```
+
+### E2e regression tests
+Bug fixes and behavior changes must add unit and e2e regression tests when feasible. If not, the PR must explain why (CI's existing e2e suite passing is not regression evidence). See AGENTS.md and the e2e test inventory in the contribute skill.
 
 If `chart/values.yaml` changed, also run `make helm-docs` and commit the regenerated `README.md` + `chart/README.md`.
 
