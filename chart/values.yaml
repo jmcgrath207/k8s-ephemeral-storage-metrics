@@ -5,7 +5,7 @@ fullnameOverride: ""
 
 image:
   repository: ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics
-  tag: 1.21.2
+  tag: 1.21.3
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []
 
