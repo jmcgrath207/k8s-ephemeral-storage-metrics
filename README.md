@@ -32,8 +32,8 @@ Every metric carries `node_name`. Pod/container metrics add `pod_name`, `pod_nam
 
 ### DaemonSet vs Deployment
 
-- **DaemonSet** (default): one exporter per node, scrapes local kubelet. Lighter apiserver load. Set `deploy_type: DaemonSet`.
-- **Deployment**: single controller, lists all pods/nodes. Use `deploy_type: Deployment` plus optional `node_label_selector` to filter nodes (e.g. `type=virtual-kubelet` to exclude virtual nodes).
+- **Deployment** (default): single controller, lists all pods/nodes. Use `deploy_type: Deployment` plus optional `node_label_selector` to filter nodes (e.g. `type=virtual-kubelet` to exclude virtual nodes).
+- **DaemonSet**: one exporter per node, scrapes local kubelet. Lighter apiserver load. Set `deploy_type: DaemonSet`.
 
 For large clusters (2K+ nodes), set `list_pods_with_cache: true` to read pod lists from the apiserver cache and reduce apiserver pressure. Pair with `deploy_type: DaemonSet` so each pod only lists its own node's pods (`spec.nodeName` fieldSelector).
 
