@@ -239,9 +239,6 @@ Then run ginkgo manually against [deployment_test.go](tests/e2e/deployment_test.
 make fmt vet test-unit test-helm-render
 ```
 
-### E2e regression tests
-Bug fixes and behavior changes must add unit and e2e regression tests when feasible. If not, the PR must explain why (CI's existing e2e suite passing is not regression evidence). See AGENTS.md and the e2e test inventory in the contribute skill.
-
 If `chart/values.yaml` changed, also run `make helm-docs` and commit the regenerated `README.md` + `chart/README.md`.
 
 ### kind alternative
