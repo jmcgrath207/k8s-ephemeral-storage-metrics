@@ -32,8 +32,8 @@ Every metric carries `node_name`. Pod/container metrics add `pod_name`, `pod_nam
 
 ### DaemonSet vs Deployment
 
-- **Deployment** (default): single controller, lists all pods/nodes. Use `deploy_type: Deployment` plus optional `node_label_selector` to filter nodes (e.g. `type=virtual-kubelet` to exclude virtual nodes).
-- **DaemonSet**: one exporter per node, scrapes local kubelet. Lighter apiserver load. Set `deploy_type: DaemonSet`.
+- **DaemonSet** (default): one exporter per node, scrapes local kubelet. Lighter apiserver load. Set `deploy_type: DaemonSet`.
+- **Deployment**: single controller, lists all pods/nodes. Use `deploy_type: Deployment` plus optional `node_label_selector` to filter nodes (e.g. `type=virtual-kubelet` to exclude virtual nodes).
 
 For large clusters (2K+ nodes), set `list_pods_with_cache: true` to read pod lists from the apiserver cache and reduce apiserver pressure. Pair with `deploy_type: DaemonSet` so each pod only lists its own node's pods (`spec.nodeName` fieldSelector).
 
@@ -69,7 +69,7 @@ helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral
 | image.imagePullPolicy | string | `"IfNotPresent"` |  |
 | image.imagePullSecrets | list | `[]` |  |
 | image.repository | string | `"ghcr.io/jmcgrath207/k8s-ephemeral-storage-metrics"` |  |
-| image.tag | string | `"1.21.2"` |  |
+| image.tag | string | `"1.21.3"` |  |
 | interval | int | `15` | Polling node rate for exporter |
 | kubeconfig | string | `""` | Path to kubeconfig file; leave empty for in-cluster config |
 | kubelet | object | `{"insecure":false,"readOnlyPort":0,"scrape":false}` | Scrape metrics through kubelet instead of kube api |
