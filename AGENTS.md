@@ -52,6 +52,13 @@ If a dependency is needed, request it. If a security advisory surfaces, the main
 - Match existing file conventions: receiver names, error wrapping (`fmt.Errorf("...: %w", err)`), package-level docs only for exported types/funcs.
 - Comments only when necessary — no narration of obvious code.
 
+### E2e regression tests
+
+- Bug fixes and behavior changes **must** add unit and e2e regression tests when feasible.
+- CI's e2e job running green on the existing suite is **not** sufficient regression evidence for a behavior fix.
+- If e2e coverage is not feasible (no deterministic trigger, needs external infra, timing-dependent race, etc.), the PR **must** explain why in the PR description and state what alternative coverage (unit/integration) is provided.
+- See the e2e test inventory in `.opencode/skills/contribute/SKILL.md`.
+
 ### Commit conventions
 
 - **Conventional Commits** format: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `test:`, `ci:`, `perf:`, `build:`

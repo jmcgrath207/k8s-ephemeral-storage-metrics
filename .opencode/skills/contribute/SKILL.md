@@ -43,10 +43,11 @@ Install these once on your dev machine:
 - `minikube_new_docker` — wipe + start minikube (calico CNI, registry addon, 3900MB)
 - `minikube_new_virtualbox` — same but virtualbox driver
 - `minikube_scale_up` / `minikube_scale_down` — add/remove minikube node (e2e Scaling Context)
+- `minikube_node2_stop` / `minikube_node2_start` — docker stop/start minikube-m02 (e2e Node Disconnect Context)
 
 ### Deploy
 - `deploy_local` / `deploy_debug` / `deploy_e2e` / `deploy_e2e_debug` / `deploy_test`
-- `deploy_many_pods` / `destroy_many_pods` — fixture for e2e Garbage Collection Context
+- `deploy_many_pods` / `destroy_many_pods` — fixture for e2e Scrape-Driven Eviction Context
 
 ### Test + lint
 - `test-unit` — `go vet ./... && go test ./pkg/... ./cmd/...` (~2s, 61 tests, no cluster)
@@ -74,7 +75,7 @@ make deploy_e2e             # ~15-25 min: full ginkgo suite
 `make deploy_e2e` chains `init test-helm-render ginkgo crane` then:
 1. Builds 3 images: main + grow-test + shrink-test (each tagged with timestamp)
 2. `crane push` each to minikube's in-cluster registry
-3. `helm upgrade --install` with all metric flags on (gc_enabled, rootfs/logs usage, adjusted_polling_rate, etc.)
+3. `helm upgrade --install` with all metric flags on (rootfs/logs usage, adjusted_polling_rate, etc.)
 4. Waits for main pod + grow-test + shrink-test to reach Running
 5. Port-forwards :9100 to host
 6. Runs `${LOCALBIN}/ginkgo -v -r tests/e2e/...`
@@ -84,7 +85,7 @@ Per-Context timeout: 180s. Suite teardown: ~30s.
 
 ## E2E test inventory
 
-`tests/e2e/deployment_test.go` has **11 ginkgo Contexts**:
+`tests/e2e/deployment_test.go` has **12 ginkgo Contexts** (plus a `BeforeSuite` that runs `scaleUp` to add node m02 before any test):
 
 1. **Observe labels** — all expected metric names + label values present in `/metrics` output
 2. **Test Polling speed** — `ephemeral_storage_adjusted_polling_rate` between 4000-5000ms
@@ -94,9 +95,10 @@ Per-Context timeout: 180s. Suite teardown: ~30s.
 6. **container_volume_usage grow/shrink** — ±100k bytes
 7. **container_rootfs_used_bytes grow/shrink** — ±100k bytes
 8. **pct not over 100** — node / container / container_volume all <100%
-9. **Scaling up/down** — `kube-proxy` on minikube-m02, then scale down asserts metrics evicted
-10. **Garbage Collection** — deploy 50+ pods → verify metrics → delete → wait 90s → verify gc
-11. (Implicit: 11 Specifies total across 10 Contexts; Observe labels has 1, GC has 1, others have 1-2)
+9. **Test Scaling** — asserts m02 metrics present (scale-up already done by BeforeSuite)
+10. **Test Node Disconnect Inode Leak** — `docker stop minikube-m02` → 10s wait → assert inode metrics absent → assert evicted metrics absent (regression test for Bug 1 / PR #194)
+11. **Test Scrape-Driven Eviction** — deploy 50+ pods → verify metrics → delete pods → wait 90s → verify evicted from Prometheus
+12. **Test Scale Down** — reconnect m02 → `minikube node delete m02` → assert all m02 metrics absent
 
 Watch helpers in `deployment_test.go`: `WatchEphemeralSize` (generic), `WatchContainerPercentage`, `WatchContainerVolumePercentage`, `WatchNodePercentage`, `WatchPollingRate`. Getters: `getPodUsageSize`, `getContainerLimitPercentage`, `getContainerVolumeLimitPercentage`, `getContainerVolumeUsage`, `getContainerRootfsUsedBytes`.
 
