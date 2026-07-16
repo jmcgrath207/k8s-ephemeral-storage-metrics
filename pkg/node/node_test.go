@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	dto "github.com/prometheus/client_model/go"
@@ -209,4 +210,38 @@ func TestNode(t *testing.T) {
 			t.Error("keep-node should still be in Set")
 		}
 	})
+}
+
+func TestNewCollectorDeploymentDefersWatch(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	origRegisterer, origGatherer := prometheus.DefaultRegisterer, prometheus.DefaultGatherer
+	prometheus.DefaultRegisterer = registry
+	prometheus.DefaultGatherer = registry
+	t.Cleanup(func() {
+		prometheus.DefaultRegisterer = origRegisterer
+		prometheus.DefaultGatherer = origGatherer
+	})
+
+	watched := make(chan struct{}, 1)
+	restore := SetWatchStarter(func(*Node) { watched <- struct{}{} })
+	t.Cleanup(restore)
+
+	t.Setenv("DEPLOY_TYPE", "Deployment")
+	n := NewCollector(1)
+
+	select {
+	case <-watched:
+		t.Fatal("NewCollector started the node watch before StartWatch was called")
+	case <-time.After(150 * time.Millisecond):
+		// expected: NewCollector must not begin watching on its own.
+	}
+
+	n.StartWatch()
+
+	select {
+	case <-watched:
+		// expected: StartWatch wires up the watch loop.
+	case <-time.After(time.Second):
+		t.Fatal("StartWatch did not start the node watch within timeout")
+	}
 }

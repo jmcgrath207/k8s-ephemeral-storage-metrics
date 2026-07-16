@@ -2,9 +2,45 @@ package main
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/node"
+	"github.com/jmcgrath207/k8s-ephemeral-storage-metrics/pkg/pod"
 )
+
+// TestStartCollectorsOrdersPodBeforeNodeWatch locks in the guarantee that
+// the diff for #199 depends on: the node watch must not begin until the
+// pod collector exists, since a Deployment-mode watch can deliver node
+// delete events that would otherwise evict pod metrics before they exist.
+// It substitutes recording stand-ins for the real constructors so the call
+// order is asserted deterministically, without a real Kubernetes client or
+// Prometheus registry.
+func TestStartCollectorsOrdersPodBeforeNodeWatch(t *testing.T) {
+	var order []string
+
+	deps := collectorDeps{
+		newNodeCollector: func(int64) node.Node {
+			order = append(order, "node.NewCollector")
+			return node.Node{}
+		},
+		newPodCollector: func(int64) pod.Collector {
+			order = append(order, "pod.NewCollector")
+			return pod.Collector{}
+		},
+		startNodeWatch: func(*node.Node) {
+			order = append(order, "node.StartWatch")
+		},
+	}
+
+	startCollectors(1, deps)
+
+	want := []string{"node.NewCollector", "pod.NewCollector", "node.StartWatch"}
+	if !reflect.DeepEqual(order, want) {
+		t.Fatalf("startup order = %v, want %v", order, want)
+	}
+}
 
 const sampleStatsSummary = `{
   "node": {"nodeName": "test-node-01"},
