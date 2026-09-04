@@ -326,7 +326,7 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		if count != 1 {
 			t.Errorf("expected 1 series (miss count reset on reappearance), got %d", count)
 		}
-		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p5"}})
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p5", Namespace: "ns5"}})
 	})
 
 	t.Run("scrapeDriven_multiplePods", func(t *testing.T) {
@@ -359,7 +359,7 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		if count != 1 {
 			t.Errorf("expected 1 (p6a survives, p6b evicted), got %d", count)
 		}
-		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p6a"}})
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p6a", Namespace: "ns6"}})
 	})
 
 	t.Run("scrapeDriven_nodeIsolation", func(t *testing.T) {
@@ -394,8 +394,8 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		if count != 1 {
 			t.Errorf("expected 1 (p8 survives on n8, p7 evicted on n7), got %d", count)
 		}
-		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p7"}})
-		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p8"}})
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p7", Namespace: "ns7"}})
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p8", Namespace: "ns8"}})
 	})
 
 	t.Run("scrapeDriven_evictPodByNodeClearsTracker", func(t *testing.T) {
@@ -443,7 +443,7 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		if count != 1 {
 			t.Errorf("expected 1 (p9b fresh tracker, 1 miss not evicted), got %d", count)
 		}
-		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p9b"}})
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p9b", Namespace: "ns9"}})
 	})
 
 	t.Run("scrapeDriven_tolerance1", func(t *testing.T) {
@@ -490,7 +490,7 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		cr.SetMetrics("p11a", "ns11", "n11", 0, 0, 0, 0, 0, 0, nil, containers)
 		cr.SetMetrics("p11b", "ns11", "n11", 0, 0, 0, 0, 0, 0, nil, containers)
 
-		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p11a"}})
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p11a", Namespace: "ns11"}})
 
 		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
 			"ephemeral_storage_container_rootfs_used_bytes",
@@ -501,7 +501,7 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		if count != 1 {
 			t.Errorf("expected 1 (p11b survives, same container name), got %d", count)
 		}
-		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p11b"}})
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p11b", Namespace: "ns11"}})
 	})
 
 	t.Run("evictPodByName_crossNamespaceSafety", func(t *testing.T) {
