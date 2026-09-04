@@ -3,6 +3,7 @@ package pod
 import (
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -52,6 +53,18 @@ var (
 type podTracker struct {
 	mu       sync.Mutex
 	lastSeen map[string]int
+}
+
+func podKey(namespace, name string) string {
+	return namespace + "/" + name
+}
+
+func splitPodKey(key string) (namespace, name string) {
+	namespace, name, ok := strings.Cut(key, "/")
+	if !ok {
+		return "", key
+	}
+	return namespace, name
 }
 
 type FsStats struct {
@@ -617,10 +630,10 @@ func EvictPodByNode(deleteLabel *prometheus.Labels) {
 // EvictStalePods evicts metrics for pods on nodeName that have been absent
 // from the kubelet stats summary for scrapeMissTolerance consecutive scrapes.
 //
-// Each scrape passes the current set of pod names from the stats summary.
-// Pods present in the summary reset their miss count to 0. Pods absent
-// increment their miss count; when it reaches scrapeMissTolerance, the pod's
-// metrics are evicted and the pod is removed from the tracker.
+// Each scrape passes the current set of namespace/name keys from the stats
+// summary. Pods present in the summary reset their miss count to 0. Pods
+// absent increment their miss count; when it reaches scrapeMissTolerance,
+// the pod's metrics are evicted and the pod is removed from the tracker.
 //
 // Query failures (node unreachable) do not call this function — the caller
 // returns early on error, so miss counts are not incremented spuriously.
@@ -632,20 +645,21 @@ func EvictStalePods(nodeName string, currentPods []string) {
 	defer tracker.mu.Unlock()
 
 	currentSet := make(map[string]struct{}, len(currentPods))
-	for _, name := range currentPods {
-		currentSet[name] = struct{}{}
-		tracker.lastSeen[name] = 0
+	for _, key := range currentPods {
+		currentSet[key] = struct{}{}
+		tracker.lastSeen[key] = 0
 	}
 
-	for podName, misses := range tracker.lastSeen {
-		if _, exists := currentSet[podName]; !exists {
+	for key, misses := range tracker.lastSeen {
+		if _, exists := currentSet[key]; !exists {
 			misses++
 			if misses >= scrapeMissTolerance {
-				log.Info().Msgf("Scrape-driven eviction: pod %s on node %s missing %d scrapes, evicting", podName, nodeName, misses)
-				evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: podName}})
-				delete(tracker.lastSeen, podName)
+				ns, name := splitPodKey(key)
+				log.Info().Msgf("Scrape-driven eviction: pod %s/%s on node %s missing %d scrapes, evicting", ns, name, nodeName, misses)
+				evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}})
+				delete(tracker.lastSeen, key)
 			} else {
-				tracker.lastSeen[podName] = misses
+				tracker.lastSeen[key] = misses
 			}
 		}
 	}

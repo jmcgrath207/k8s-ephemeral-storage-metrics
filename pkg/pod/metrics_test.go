@@ -266,7 +266,7 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		cr4.SetMetrics("p4", "ns4", "n4", 0, 0, 0, 0, 0, 0, nil, containers)
 
 		// Scrape 1: p4 present → miss count = 0
-		EvictStalePods("n4", []string{"p4"})
+		EvictStalePods("n4", []string{"ns4/p4"})
 
 		// Scrape 2: p4 missing → miss count = 1 (not yet evicted)
 		EvictStalePods("n4", nil)
@@ -312,10 +312,10 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		}
 		cr5.SetMetrics("p5", "ns5", "n5", 0, 0, 0, 0, 0, 0, nil, containers)
 
-		EvictStalePods("n5", []string{"p5"}) // miss=0
-		EvictStalePods("n5", nil)            // miss=1
-		EvictStalePods("n5", []string{"p5"}) // reset to 0
-		EvictStalePods("n5", nil)            // miss=1, NOT 2
+		EvictStalePods("n5", []string{"ns5/p5"}) // miss=0
+		EvictStalePods("n5", nil)                // miss=1
+		EvictStalePods("n5", []string{"ns5/p5"}) // reset to 0
+		EvictStalePods("n5", nil)                // miss=1, NOT 2
 
 		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
 			"ephemeral_storage_container_rootfs_used_bytes",
@@ -346,9 +346,9 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		cr.SetMetrics("p6a", "ns6", "n6", 0, 0, 0, 0, 0, 0, nil, containers)
 		cr.SetMetrics("p6b", "ns6", "n6", 0, 0, 0, 0, 0, 0, nil, containers)
 
-		EvictStalePods("n6", []string{"p6a", "p6b"}) // both miss=0
-		EvictStalePods("n6", []string{"p6a"})        // p6b miss=1
-		EvictStalePods("n6", []string{"p6a"})        // p6b miss=2 → evicted
+		EvictStalePods("n6", []string{"ns6/p6a", "ns6/p6b"}) // both miss=0
+		EvictStalePods("n6", []string{"ns6/p6a"})            // p6b miss=1
+		EvictStalePods("n6", []string{"ns6/p6a"})            // p6b miss=2 → evicted
 
 		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
 			"ephemeral_storage_container_rootfs_used_bytes",
@@ -380,10 +380,10 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		cr.SetMetrics("p7", "ns7", "n7", 0, 0, 0, 0, 0, 0, nil, containers)
 		cr.SetMetrics("p8", "ns8", "n8", 0, 0, 0, 0, 0, 0, nil, containers)
 
-		EvictStalePods("n7", []string{"p7"}) // p7 tracked, miss=0
-		EvictStalePods("n7", nil)            // p7 miss=1
-		EvictStalePods("n7", nil)            // p7 miss=2 → evicted
-		EvictStalePods("n8", []string{"p8"})
+		EvictStalePods("n7", []string{"ns7/p7"}) // p7 tracked, miss=0
+		EvictStalePods("n7", nil)                // p7 miss=1
+		EvictStalePods("n7", nil)                // p7 miss=2 → evicted
+		EvictStalePods("n8", []string{"ns8/p8"})
 
 		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
 			"ephemeral_storage_container_rootfs_used_bytes",
@@ -414,7 +414,7 @@ func TestRootfsLogsMetrics(t *testing.T) {
 			{Name: "c1", Rootfs: FsStats{UsedBytes: 100, CapacityBytes: 1000}},
 		}
 		cr.SetMetrics("p9", "ns9", "n9", 0, 0, 0, 0, 0, 0, nil, containers)
-		EvictStalePods("n9", []string{"p9"})
+		EvictStalePods("n9", []string{"ns9/p9"})
 
 		deleteLabel := prometheus.Labels{"node_name": "n9"}
 		EvictPodByNode(&deleteLabel)
@@ -431,7 +431,7 @@ func TestRootfsLogsMetrics(t *testing.T) {
 
 		// New pod on same node gets a fresh tracker (no leftover state).
 		cr.SetMetrics("p9b", "ns9", "n9", 0, 0, 0, 0, 0, 0, nil, containers)
-		EvictStalePods("n9", []string{"p9b"})
+		EvictStalePods("n9", []string{"ns9/p9b"})
 		EvictStalePods("n9", nil) // 1 miss, NOT evicted (tolerance=2)
 
 		count, err = testutil.GatherAndCount(prometheus.DefaultGatherer,
@@ -461,7 +461,7 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		}
 		cr.SetMetrics("p10", "ns10", "n10", 0, 0, 0, 0, 0, 0, nil, containers)
 
-		EvictStalePods("n10", []string{"p10"})
+		EvictStalePods("n10", []string{"ns10/p10"})
 		EvictStalePods("n10", nil) // miss=1 → evicted (tolerance=1)
 
 		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
