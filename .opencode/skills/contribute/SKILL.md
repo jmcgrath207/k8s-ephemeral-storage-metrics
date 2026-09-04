@@ -50,7 +50,7 @@ Install these once on your dev machine:
 - `deploy_many_pods` / `destroy_many_pods` — fixture for e2e Scrape-Driven Eviction Context
 
 ### Test + lint
-- `test-unit` — `go vet ./... && go test ./pkg/... ./cmd/...` (~2s, 61 tests, no cluster)
+- `test-unit` — `go vet ./... && go test ./pkg/... ./cmd/...` (~2s, 74 tests, no cluster)
 - `test-helm-render` — `helm template` against 8 k8s versions
 - `fmt` / `vet` / `gosec` / `govulncheck`
 
@@ -85,7 +85,7 @@ Per-Context timeout: 180s. Suite teardown: ~30s.
 
 ## E2E test inventory
 
-`tests/e2e/deployment_test.go` has **12 ginkgo Contexts** (plus a `BeforeSuite` that runs `scaleUp` to add node m02 before any test):
+`tests/e2e/deployment_test.go` has **13 ginkgo Contexts** (plus a `BeforeSuite` that runs `scaleUp` to add node m02 before any test):
 
 1. **Observe labels** — all expected metric names + label values present in `/metrics` output
 2. **Test Polling speed** — `ephemeral_storage_adjusted_polling_rate` between 4000-5000ms
@@ -98,14 +98,15 @@ Per-Context timeout: 180s. Suite teardown: ~30s.
 9. **Test Scaling** — asserts m02 metrics present (scale-up already done by BeforeSuite)
 10. **Test Node Disconnect Inode Leak** — `docker stop minikube-m02` → 10s wait → assert inode metrics absent → assert evicted metrics absent (regression test for Bug 1 / PR #194)
 11. **Test Scrape-Driven Eviction** — deploy 50+ pods → verify metrics → delete pods → wait 90s → verify evicted from Prometheus
-12. **Test Scale Down** — reconnect m02 → `minikube node delete m02` → assert all m02 metrics absent
+12. **Test Cross-Namespace Eviction** — two Pods named `dup-name` in namespaces `dup-a`/`dup-b` on minikube → delete one → assert its series evicted while the other namespace's series remains (regression test for #197)
+13. **Test Scale Down** — reconnect m02 → `minikube node delete m02` → assert all m02 metrics absent
 
 Watch helpers in `deployment_test.go`: `WatchEphemeralSize` (generic), `WatchContainerPercentage`, `WatchContainerVolumePercentage`, `WatchNodePercentage`, `WatchPollingRate`. Getters: `getPodUsageSize`, `getContainerLimitPercentage`, `getContainerVolumeLimitPercentage`, `getContainerVolumeUsage`, `getContainerRootfsUsedBytes`.
 
 ## Unit tests
 
 ```
-make test-unit    # ~2s, 61 tests, no cluster
+make test-unit    # ~2s, 74 tests, no cluster
 ```
 
 Coverage by package: pkg/dev 73.8%, pkg/pod 64.3%, pkg/node 25.8%, cmd/app 0% (untestable without source mods — `setMetrics` calls `Node.Query` which needs real clientset; cannot mock `Node` since it's concrete not interface). **Total: 47.2%.**
