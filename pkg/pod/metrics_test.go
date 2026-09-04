@@ -503,4 +503,62 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		}
 		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "p11b"}})
 	})
+
+	t.Run("evictPodByName_crossNamespaceSafety", func(t *testing.T) {
+		cr := Collector{
+			containerRootfsUsage: true,
+			lookup:               &map[string]pod{},
+			lookupMutex:          &sync.RWMutex{},
+		}
+		containers := []ContainerStats{
+			{Name: "c1", Rootfs: FsStats{UsedBytes: 100, CapacityBytes: 1000}},
+		}
+		cr.SetMetrics("dup-name", "dup-a", "n12", 0, 0, 0, 0, 0, 0, nil, containers)
+		cr.SetMetrics("dup-name", "dup-b", "n12", 0, 0, 0, 0, 0, 0, nil, containers)
+
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "dup-name", Namespace: "dup-a"}})
+
+		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
+			"ephemeral_storage_container_rootfs_used_bytes",
+		)
+		if err != nil {
+			t.Fatalf("GatherAndCount failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 (dup-b survives), got %d", count)
+		}
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "dup-name", Namespace: "dup-b"}})
+	})
+
+	t.Run("scrapeDriven_crossNamespace", func(t *testing.T) {
+		prev := scrapeMissTolerance
+		scrapeMissTolerance = 2
+		defer func() { scrapeMissTolerance = prev }()
+
+		cr := Collector{
+			containerRootfsUsage: true,
+			lookup:               &map[string]pod{},
+			lookupMutex:          &sync.RWMutex{},
+		}
+		containers := []ContainerStats{
+			{Name: "c1", Rootfs: FsStats{UsedBytes: 100, CapacityBytes: 1000}},
+		}
+		cr.SetMetrics("dup-name", "dup-a", "n13", 0, 0, 0, 0, 0, 0, nil, containers)
+		cr.SetMetrics("dup-name", "dup-b", "n13", 0, 0, 0, 0, 0, 0, nil, containers)
+
+		EvictStalePods("n13", []string{"dup-a/dup-name", "dup-b/dup-name"})
+		EvictStalePods("n13", []string{"dup-b/dup-name"})
+		EvictStalePods("n13", []string{"dup-b/dup-name"})
+
+		count, err := testutil.GatherAndCount(prometheus.DefaultGatherer,
+			"ephemeral_storage_container_rootfs_used_bytes",
+		)
+		if err != nil {
+			t.Fatalf("GatherAndCount failed: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("expected 1 (dup-b survives scrape eviction of dup-a), got %d", count)
+		}
+		evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "dup-name", Namespace: "dup-b"}})
+	})
 }
