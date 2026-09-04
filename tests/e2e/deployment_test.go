@@ -354,6 +354,59 @@ func destroyManyPods() {
 
 }
 
+const dupPodsYAML = `
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dup-a
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dup-b
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dup-name
+  namespace: dup-a
+spec:
+  nodeName: minikube
+  containers:
+    - name: pause
+      image: busybox:stable
+      command: ["sleep", "infinity"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dup-name
+  namespace: dup-b
+spec:
+  nodeName: minikube
+  containers:
+    - name: pause
+      image: busybox:stable
+      command: ["sleep", "infinity"]
+`
+
+func deployDupPods() {
+	cmd := exec.Command("kubectl", "apply", "-f", "-")
+	cmd.Stdin = strings.NewReader(dupPodsYAML)
+	out, err := cmd.CombinedOutput()
+	gomega.Expect(err).ShouldNot(gomega.HaveOccurred(), string(out))
+	for _, ns := range []string{"dup-a", "dup-b"} {
+		wait := exec.Command("kubectl", "wait", "--for=condition=Ready", "pod/dup-name", "-n", ns, "--timeout=120s")
+		out, err = wait.CombinedOutput()
+		gomega.Expect(err).ShouldNot(gomega.HaveOccurred(), string(out))
+	}
+}
+
+func destroyDupPods() {
+	cmd := exec.Command("kubectl", "delete", "namespace", "dup-a", "dup-b", "--ignore-not-found=true")
+	_, _ = cmd.Output()
+}
+
 func nodeDisconnect() {
 	cmd := exec.Command("make", "minikube_node2_stop")
 	cmd.Dir = "../.."
@@ -536,6 +589,28 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 
 			// Verify metrics for many-pods namespace are removed
 			checkPrometheus(manyPodsCheckSlice, true)
+		})
+	})
+	ginkgo.Context("Test Cross-Namespace Eviction\n", func() {
+		ginkgo.AfterEach(destroyDupPods)
+		ginkgo.Specify("\nDeleting a pod must not evict a same-named pod in another namespace", func() {
+			deployDupPods()
+
+			checkPrometheus([]string{
+				`pod_name="dup-name",pod_namespace="dup-a"`,
+				`pod_name="dup-name",pod_namespace="dup-b"`,
+			}, false)
+
+			cmd := exec.Command("kubectl", "delete", "pod", "dup-name", "-n", "dup-a", "--wait=true")
+			out, err := cmd.CombinedOutput()
+			gomega.Expect(err).ShouldNot(gomega.HaveOccurred(), string(out))
+
+			checkPrometheus([]string{
+				`pod_name="dup-name",pod_namespace="dup-a"`,
+			}, true)
+			checkPrometheus([]string{
+				`pod_name="dup-name",pod_namespace="dup-b"`,
+			}, false)
 		})
 	})
 	ginkgo.Context("Test Scale Down\n", func() {

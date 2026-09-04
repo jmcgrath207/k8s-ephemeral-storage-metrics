@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 readonly CRD_BASE_URL=https://raw.githubusercontent.com/prometheus-operator/prometheus-operator
 : "${PROMETHEUS_OPERATOR_VERSION:=v0.65.1}"
 
@@ -19,29 +21,47 @@ minikube start \
 # kubectl patch daemonset -n kube-system registry-proxy -p '{"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/hostname":"minikube"}}}}}'
 
 # Wait until registry pod come up
-while [ "$(kubectl get pods -n kube-system -l actual-registry=true -o=jsonpath='{.items[*].status.phase}')" != "Running" ]; do
+for _ in $(seq 1 30); do
+  if [ "$(kubectl get pods -n kube-system -l actual-registry=true -o=jsonpath='{.items[*].status.phase}')" = "Running" ]; then
+    break
+  fi
   echo "Waiting for registry pod to start. Sleep 10" && sleep 10
 done
+if [ "$(kubectl get pods -n kube-system -l actual-registry=true -o=jsonpath='{.items[*].status.phase}')" != "Running" ]; then
+  echo "ERROR: registry pod did not become Running" >&2
+  exit 1
+fi
 
 # Wait until registry-proxy pod come up
-while [ "$(kubectl get pods -n kube-system -l registry-proxy=true -o=jsonpath='{.items[*].status.phase}')" != "Running" ]; do
+for _ in $(seq 1 30); do
+  if [ "$(kubectl get pods -n kube-system -l registry-proxy=true -o=jsonpath='{.items[*].status.phase}')" = "Running" ]; then
+    break
+  fi
   echo "Waiting for registry proxy pod to start. Sleep 10" && sleep 10
 done
+if [ "$(kubectl get pods -n kube-system -l registry-proxy=true -o=jsonpath='{.items[*].status.phase}')" != "Running" ]; then
+  echo "ERROR: registry-proxy pod did not become Running" >&2
+  exit 1
+fi
 
 # Use a while loop to repeatedly check the registry endpoint until health
-while true; do
- # Send a GET request to the endpoint and capture the HTTP status code
- status_code=$(curl -s -o /dev/null -w "%{http_code}" "http://$(minikube ip):5000/v2/_catalog")
+for _ in $(seq 1 60); do
+  # Send a GET request to the endpoint and capture the HTTP status code
+  status_code=$(curl -s -o /dev/null -w "%{http_code}" "http://$(minikube ip):5000/v2/_catalog")
 
- # Check if the status code is 200
- if [ "$status_code" -eq 200 ]; then
+  # Check if the status code is 200
+  if [ "$status_code" -eq 200 ]; then
     echo "Registry endpoint is healthy. Status code: $status_code"
     break
- else
+  else
     echo "Registry endpoint is not healthy. Status code: $status_code. Retrying..."
     sleep 5 # Wait for 5 seconds before retrying
- fi
+  fi
 done
+if [ "$(curl -s -o /dev/null -w "%{http_code}" "http://$(minikube ip):5000/v2/_catalog")" != "200" ]; then
+  echo "ERROR: registry endpoint never became healthy" >&2
+  exit 1
+fi
 
 
 

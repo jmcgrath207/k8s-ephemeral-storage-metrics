@@ -3,6 +3,7 @@ package pod
 import (
 	"fmt"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -52,6 +53,18 @@ var (
 type podTracker struct {
 	mu       sync.Mutex
 	lastSeen map[string]int
+}
+
+func podKey(namespace, name string) string {
+	return namespace + "/" + name
+}
+
+func splitPodKey(key string) (namespace, name string) {
+	namespace, name, ok := strings.Cut(key, "/")
+	if !ok {
+		return "", key
+	}
+	return namespace, name
 }
 
 type FsStats struct {
@@ -417,7 +430,7 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 
 	var setValue float64
 	cr.lookupMutex.RLock()
-	podResult, okPodResult := (*cr.lookup)[podName]
+	podResult, okPodResult := (*cr.lookup)[podKey(podNamespace, podName)]
 	cr.lookupMutex.RUnlock()
 
 	// TODO: something seems wrong about the metrics.
@@ -555,28 +568,28 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 // Evicts exporter metrics by pod and container name
 func evictPodByName(p v1.Pod) {
 	start := time.Now()
-	podGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	inodesGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	inodesFreeGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	inodesUsedGaugeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerRootfsUsedBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerRootfsAvailableBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerRootfsCapacityBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerLogsUsedBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerLogsAvailableBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerLogsCapacityBytesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerRootfsUsagePercentageVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerLogsUsagePercentageVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerRootfsInodesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerRootfsInodesFreeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerRootfsInodesUsedVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerLogsInodesVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerLogsInodesFreeVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerLogsInodesUsedVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-
-	containerVolumeUsageVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerPercentageLimitsVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
-	containerPercentageVolumeLimitsVec.DeletePartialMatch(prometheus.Labels{"pod_name": p.Name})
+	match := prometheus.Labels{"pod_name": p.Name, "pod_namespace": p.Namespace}
+	podGaugeVec.DeletePartialMatch(match)
+	inodesGaugeVec.DeletePartialMatch(match)
+	inodesFreeGaugeVec.DeletePartialMatch(match)
+	inodesUsedGaugeVec.DeletePartialMatch(match)
+	containerRootfsUsedBytesVec.DeletePartialMatch(match)
+	containerRootfsAvailableBytesVec.DeletePartialMatch(match)
+	containerRootfsCapacityBytesVec.DeletePartialMatch(match)
+	containerLogsUsedBytesVec.DeletePartialMatch(match)
+	containerLogsAvailableBytesVec.DeletePartialMatch(match)
+	containerLogsCapacityBytesVec.DeletePartialMatch(match)
+	containerRootfsUsagePercentageVec.DeletePartialMatch(match)
+	containerLogsUsagePercentageVec.DeletePartialMatch(match)
+	containerRootfsInodesVec.DeletePartialMatch(match)
+	containerRootfsInodesFreeVec.DeletePartialMatch(match)
+	containerRootfsInodesUsedVec.DeletePartialMatch(match)
+	containerLogsInodesVec.DeletePartialMatch(match)
+	containerLogsInodesFreeVec.DeletePartialMatch(match)
+	containerLogsInodesUsedVec.DeletePartialMatch(match)
+	containerVolumeUsageVec.DeletePartialMatch(match)
+	containerPercentageLimitsVec.DeletePartialMatch(match)
+	containerPercentageVolumeLimitsVec.DeletePartialMatch(match)
 	duration := time.Since(start)
 	if duration > 100*time.Millisecond {
 		log.Warn().
@@ -617,10 +630,10 @@ func EvictPodByNode(deleteLabel *prometheus.Labels) {
 // EvictStalePods evicts metrics for pods on nodeName that have been absent
 // from the kubelet stats summary for scrapeMissTolerance consecutive scrapes.
 //
-// Each scrape passes the current set of pod names from the stats summary.
-// Pods present in the summary reset their miss count to 0. Pods absent
-// increment their miss count; when it reaches scrapeMissTolerance, the pod's
-// metrics are evicted and the pod is removed from the tracker.
+// Each scrape passes the current set of namespace/name keys from the stats
+// summary. Pods present in the summary reset their miss count to 0. Pods
+// absent increment their miss count; when it reaches scrapeMissTolerance,
+// the pod's metrics are evicted and the pod is removed from the tracker.
 //
 // Query failures (node unreachable) do not call this function — the caller
 // returns early on error, so miss counts are not incremented spuriously.
@@ -632,20 +645,21 @@ func EvictStalePods(nodeName string, currentPods []string) {
 	defer tracker.mu.Unlock()
 
 	currentSet := make(map[string]struct{}, len(currentPods))
-	for _, name := range currentPods {
-		currentSet[name] = struct{}{}
-		tracker.lastSeen[name] = 0
+	for _, key := range currentPods {
+		currentSet[key] = struct{}{}
+		tracker.lastSeen[key] = 0
 	}
 
-	for podName, misses := range tracker.lastSeen {
-		if _, exists := currentSet[podName]; !exists {
+	for key, misses := range tracker.lastSeen {
+		if _, exists := currentSet[key]; !exists {
 			misses++
 			if misses >= scrapeMissTolerance {
-				log.Info().Msgf("Scrape-driven eviction: pod %s on node %s missing %d scrapes, evicting", podName, nodeName, misses)
-				evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: podName}})
-				delete(tracker.lastSeen, podName)
+				ns, name := splitPodKey(key)
+				log.Info().Msgf("Scrape-driven eviction: pod %s/%s on node %s missing %d scrapes, evicting", ns, name, nodeName, misses)
+				evictPodByName(v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}})
+				delete(tracker.lastSeen, key)
 			} else {
-				tracker.lastSeen[podName] = misses
+				tracker.lastSeen[key] = misses
 			}
 		}
 	}

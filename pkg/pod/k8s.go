@@ -40,7 +40,7 @@ func (cr Collector) getPodData(p v1.Pod) {
 		}
 
 		cr.lookupMutex.Lock()
-		(*cr.lookup)[p.Name] = pod{containers: collectContainers}
+		(*cr.lookup)[podKey(p.Namespace, p.Name)] = pod{containers: collectContainers}
 		cr.lookupMutex.Unlock()
 	}
 }
@@ -126,7 +126,7 @@ func (cr Collector) podWatch() {
 				}
 			}
 			cr.lookupMutex.Lock()
-			delete(*cr.lookup, p.Name)
+			delete(*cr.lookup, podKey(p.Namespace, p.Name))
 			cr.lookupMutex.Unlock()
 			evictPodByName(*p)
 		},

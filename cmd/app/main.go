@@ -83,7 +83,7 @@ func setMetricsFromSummary(nodeName string, content []byte) error {
 	// Evict pods absent from the stats summary for scrapeMissTolerance consecutive scrapes
 	currentPods := make([]string, 0, len(data.Pods))
 	for _, p := range data.Pods {
-		currentPods = append(currentPods, p.PodRef.Name)
+		currentPods = append(currentPods, p.PodRef.Namespace+"/"+p.PodRef.Name)
 	}
 	pod.EvictStalePods(nodeName, currentPods)
 
