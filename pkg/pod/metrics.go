@@ -430,7 +430,7 @@ func (cr Collector) SetMetrics(podName string, podNamespace string, nodeName str
 
 	var setValue float64
 	cr.lookupMutex.RLock()
-	podResult, okPodResult := (*cr.lookup)[podName]
+	podResult, okPodResult := (*cr.lookup)[podKey(podNamespace, podName)]
 	cr.lookupMutex.RUnlock()
 
 	// TODO: something seems wrong about the metrics.

@@ -18,7 +18,7 @@ func TestFactory(t *testing.T) {
 			lookupMutex:          &sync.RWMutex{},
 		}
 		p := v1.Pod{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-pod"},
+			ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "ns1"},
 			Status:     v1.PodStatus{Phase: v1.PodRunning},
 			Spec: v1.PodSpec{
 				Containers: []v1.Container{
@@ -28,7 +28,7 @@ func TestFactory(t *testing.T) {
 		}
 		cr.getPodData(p)
 		cr.lookupMutex.RLock()
-		pd, ok := (*cr.lookup)["test-pod"]
+		pd, ok := (*cr.lookup)[podKey("ns1", "test-pod")]
 		cr.lookupMutex.RUnlock()
 		if !ok {
 			t.Fatal("expected pod in lookup")
@@ -164,6 +164,42 @@ func TestFactory(t *testing.T) {
 		result := cr.getContainerData(c, p)
 		if len(result.emptyDirVolumes) != 0 {
 			t.Fatalf("expected 0 volumes when containerVolumeUsage disabled, got %d", len(result.emptyDirVolumes))
+		}
+	})
+
+	t.Run("getPodData_sameNameDifferentNS", func(t *testing.T) {
+		lookup := make(map[string]pod)
+		cr := Collector{
+			lookup:      &lookup,
+			lookupMutex: &sync.RWMutex{},
+		}
+		a := v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: "dup-name", Namespace: "dup-a"},
+			Status:     v1.PodStatus{Phase: v1.PodRunning},
+			Spec:       v1.PodSpec{Containers: []v1.Container{{Name: "ca"}}},
+		}
+		b := v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: "dup-name", Namespace: "dup-b"},
+			Status:     v1.PodStatus{Phase: v1.PodRunning},
+			Spec:       v1.PodSpec{Containers: []v1.Container{{Name: "cb"}}},
+		}
+		cr.getPodData(a)
+		cr.getPodData(b)
+		cr.lookupMutex.Lock()
+		delete(*cr.lookup, podKey("dup-a", "dup-name"))
+		cr.lookupMutex.Unlock()
+		cr.lookupMutex.RLock()
+		_, okA := (*cr.lookup)[podKey("dup-a", "dup-name")]
+		pdB, okB := (*cr.lookup)[podKey("dup-b", "dup-name")]
+		cr.lookupMutex.RUnlock()
+		if okA {
+			t.Fatal("expected dup-a removed from lookup")
+		}
+		if !okB {
+			t.Fatal("expected dup-b to remain in lookup")
+		}
+		if len(pdB.containers) != 1 || pdB.containers[0].name != "cb" {
+			t.Fatalf("dup-b lookup corrupted, got %+v", pdB)
 		}
 	})
 

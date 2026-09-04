@@ -153,7 +153,7 @@ func TestRootfsLogsMetrics(t *testing.T) {
 			lookupMutex:                     &sync.RWMutex{},
 		}
 		cr3.lookupMutex.Lock()
-		(*cr3.lookup)["p3"] = pod{
+		(*cr3.lookup)[podKey("ns3", "p3")] = pod{
 			containers: []container{
 				{
 					name:  "c1",
