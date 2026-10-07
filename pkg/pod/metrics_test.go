@@ -160,6 +160,7 @@ func TestRootfsLogsMetrics(t *testing.T) {
 					limit: 2 * 1024 * 1024 * 1024, // 2Gi
 					emptyDirVolumes: []emptyDirVolumes{
 						{name: "vol1", mountPath: "/data", sizeLimit: 500 * 1024 * 1024},
+						{name: "vol2", mountPath: "/scratch", sizeLimit: 100 * 1024 * 1024},
 					},
 				},
 			},
@@ -167,20 +168,23 @@ func TestRootfsLogsMetrics(t *testing.T) {
 		cr3.lookupMutex.Unlock()
 
 		volumes := []Volume{
-			{Name: "vol1", UsedBytes: 0},
+			{Name: "vol1", UsedBytes: 250 * 1024 * 1024},
+			{Name: "vol2", UsedBytes: 150 * 1024 * 1024},
 		}
-		cr3.SetMetrics("p3", "ns3", "n3", 0, 0, 0, 0, 0, 0, volumes, nil)
+		cr3.SetMetrics("p3", "ns3", "n3", 1024*1024*1024, 0, 0, 0, 0, 0, volumes, nil)
 
 		expected := strings.NewReader(`
 			# HELP ephemeral_storage_container_volume_usage Current ephemeral storage used by a container's volume in a pod
 			# TYPE ephemeral_storage_container_volume_usage gauge
-			ephemeral_storage_container_volume_usage{container="c1",mount_path="/data",node_name="n3",pod_name="p3",pod_namespace="ns3",volume_name="vol1"} 0
+			ephemeral_storage_container_volume_usage{container="c1",mount_path="/data",node_name="n3",pod_name="p3",pod_namespace="ns3",volume_name="vol1"} 2.62144e+08
+			ephemeral_storage_container_volume_usage{container="c1",mount_path="/scratch",node_name="n3",pod_name="p3",pod_namespace="ns3",volume_name="vol2"} 1.572864e+08
 			# HELP ephemeral_storage_container_volume_limit_percentage Percentage of ephemeral storage used by a container's volume in a pod
 			# TYPE ephemeral_storage_container_volume_limit_percentage gauge
-			ephemeral_storage_container_volume_limit_percentage{container="c1",mount_path="/data",node_name="n3",pod_name="p3",pod_namespace="ns3",volume_name="vol1"} 0
+			ephemeral_storage_container_volume_limit_percentage{container="c1",mount_path="/data",node_name="n3",pod_name="p3",pod_namespace="ns3",volume_name="vol1"} 50
+			ephemeral_storage_container_volume_limit_percentage{container="c1",mount_path="/scratch",node_name="n3",pod_name="p3",pod_namespace="ns3",volume_name="vol2"} 150
 			# HELP ephemeral_storage_container_limit_percentage Percentage of ephemeral storage used by a container in a pod
 			# TYPE ephemeral_storage_container_limit_percentage gauge
-			ephemeral_storage_container_limit_percentage{container="c1",node_name="n3",pod_name="p3",pod_namespace="ns3",source="container"} 0
+			ephemeral_storage_container_limit_percentage{container="c1",node_name="n3",pod_name="p3",pod_namespace="ns3",source="container"} 50
 		`)
 		if err := testutil.GatherAndCompare(prometheus.DefaultGatherer, expected,
 			"ephemeral_storage_container_volume_usage",
