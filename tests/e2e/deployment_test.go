@@ -477,7 +477,12 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 			WatchEphemeralSize("shrink-test", 100000, time.Second*180, getContainerRootfsUsedBytes)
 		})
 	})
-	ginkgo.Context("\nMake sure percentage is not over 100", func() {
+	// The grow-test and shrink-test pods stay below their container/volume
+	// ephemeral-storage limits, so their limit-percentage metrics must remain
+	// under 100. A volume or container *past* its limit reports >100 (it is
+	// not capped); that over-limit case is covered by the containerVolume_limits
+	// unit test, which asserts 150 for 150 MiB used of a 100 MiB limit.
+	ginkgo.Context("\nMake sure percentages stay under 100 for under-limit pods", func() {
 		ginkgo.Specify("\nTest ephemeral_storage_node_percentage", func() {
 			WatchNodePercentage()
 		})
