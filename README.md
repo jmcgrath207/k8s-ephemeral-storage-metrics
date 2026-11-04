@@ -214,6 +214,10 @@ Pushing a version tag (for example `1.21.3`, `v1.21.3`, or `1.21.3-rc01`) runs
 The tag must match `chart/Chart.yaml`'s version, ignoring an optional leading `v`.
 The OCI tag is taken from the chart version, including prerelease suffixes.
 
+`make VERSION=<version> release-github` and `make VERSION=<version> prerelease-github`
+also publish the packaged chart to GHCR. If publication fails, the archive is
+retained for retry.
+
 To publish an already packaged chart separately, run:
 
 ```bash
