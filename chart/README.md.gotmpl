@@ -83,8 +83,10 @@ Run `make fmt vet test-unit test-helm-render` before opening a PR.
 
 ## Publishing OCI charts
 
-`make VERSION=<version> release-github` and `make VERSION=<version> prerelease-github`
-also push the packaged chart to `ghcr.io/jmcgrath207/charts/k8s-ephemeral-storage-metrics`.
+Pushing a version tag (for example `1.21.3`, `v1.21.3`, or `1.21.3-rc01`) runs
+`.github/workflows/release-helm.yaml` to validate, package, and push the chart to
+`ghcr.io/jmcgrath207/charts/k8s-ephemeral-storage-metrics` using `GITHUB_TOKEN`.
+The tag must match `chart/Chart.yaml`'s version, ignoring an optional leading `v`.
 The OCI tag is taken from the chart version, including prerelease suffixes.
 
 To publish an already packaged chart separately, run:
@@ -93,7 +95,7 @@ To publish an already packaged chart separately, run:
 make VERSION=<version> release-helm-oci
 ```
 
-This requires Helm 3.8+ and `gh` authenticated with a token that has `write:packages`
+Manual publishing requires Helm 3.8+ and `gh` authenticated with a token that has `write:packages`
 access to the `jmcgrath207` namespace (see `make github_login`). After the first
 push, a maintainer must set the GHCR package visibility to public to allow
 anonymous pulls.

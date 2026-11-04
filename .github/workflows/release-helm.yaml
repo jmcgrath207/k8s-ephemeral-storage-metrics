@@ -1,0 +1,49 @@
+name: Publish Helm chart
+
+on:
+  push:
+    tags:
+      - '[0-9]*.[0-9]*.[0-9]*'
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.repository == 'jmcgrath207/k8s-ephemeral-storage-metrics'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+      - name: Validate and package chart
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          chart_version="$(helm show chart ./chart | sed -n 's/^version: //p')"
+          if [[ "$chart_version" != "$version" ]]; then
+            echo "Chart version $chart_version does not match tag $RELEASE_TAG" >&2
+            exit 1
+          fi
+          helm lint ./chart
+          helm template ./chart -f ./chart/test-values.yaml > /dev/null
+          helm package ./chart --destination dist
+      - name: Publish chart to GHCR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          printf '%s' "$GH_TOKEN" | helm registry login ghcr.io --username "$GH_ACTOR" --password-stdin
+          helm push "dist/k8s-ephemeral-storage-metrics-${version}.tgz" oci://ghcr.io/jmcgrath207/charts
