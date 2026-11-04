@@ -50,6 +50,12 @@ helm repo update
 helm upgrade --install my-deployment k8s-ephemeral-storage-metrics/k8s-ephemeral-storage-metrics
 ```
 
+Helm 3.8+ can also install releases published as OCI charts:
+
+```bash
+helm upgrade --install my-deployment oci://ghcr.io/jmcgrath207/charts/k8s-ephemeral-storage-metrics --version <version>
+```
+
 ## Values
 
 | Key | Type | Default | Description |
@@ -199,6 +205,23 @@ For local development / testing, install:
 | Unit tests (~2s, no cluster) | `make test-unit` |
 
 Run `make fmt vet test-unit test-helm-render` before opening a PR.
+
+## Publishing OCI charts
+
+`make VERSION=<version> release-github` and `make VERSION=<version> prerelease-github`
+also push the packaged chart to `ghcr.io/jmcgrath207/charts/k8s-ephemeral-storage-metrics`.
+The OCI tag is taken from the chart version, including prerelease suffixes.
+
+To publish an already packaged chart separately, run:
+
+```bash
+make VERSION=<version> release-helm-oci
+```
+
+This requires Helm 3.8+ and `gh` authenticated with a token that has `write:packages`
+access to the `jmcgrath207` namespace (see `make github_login`). After the first
+push, a maintainer must set the GHCR package visibility to public to allow
+anonymous pulls.
 
 ## Contribute
 

@@ -119,20 +119,34 @@ release: release-docker release-helm helm-docs
 	# Prerelease Candidate
 	# ex. make VERSION=1.11.2-rc01 release
 
+.PHONY: release-helm-oci
+release-helm-oci:
+	set -e
+	test -n "${VERSION}"
+	test -f "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz"
+	username="$$(gh api user --jq .login)"
+	token="$$(gh auth token)"
+	printf '%s' "$$token" | helm registry login ghcr.io --username "$$username" --password-stdin
+	helm push "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz" oci://ghcr.io/jmcgrath207/charts
+
 release-github:
+	set -e
 	# Prod release
 	# ex. make VERSION=1.21.3 release-github
 	gh repo set-default jmcgrath207/k8s-ephemeral-storage-metrics
 	gh release create ${VERSION} --generate-notes
 	gh release upload ${VERSION} "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz"
+	$(MAKE) release-helm-oci
 	rm chart/k8s-ephemeral-storage-metrics-*.tgz
 
 prerelease-github:
+	set -e
 	# Prerelease Candidate
 	# ex. make VERSION=1.11.2-rc01 prerelease-github
 	gh repo set-default jmcgrath207/k8s-ephemeral-storage-metrics
 	gh release create ${VERSION} --generate-notes --prerelease
 	gh release upload ${VERSION} "chart/k8s-ephemeral-storage-metrics-${VERSION}.tgz"
+	$(MAKE) release-helm-oci
 	rm chart/k8s-ephemeral-storage-metrics-*.tgz
 
 github_login:
