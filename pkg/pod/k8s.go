@@ -38,6 +38,11 @@ func (cr Collector) getPodData(p v1.Pod) {
 		for _, x := range p.Spec.Containers {
 			collectContainers = append(collectContainers, cr.getContainerData(x, p))
 		}
+		for _, x := range p.Spec.InitContainers {
+			if x.RestartPolicy != nil && *x.RestartPolicy == v1.ContainerRestartPolicyAlways {
+				collectContainers = append(collectContainers, cr.getContainerData(x, p))
+			}
+		}
 
 		cr.lookupMutex.Lock()
 		(*cr.lookup)[podKey(p.Namespace, p.Name)] = pod{containers: collectContainers}
