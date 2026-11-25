@@ -203,4 +203,31 @@ func TestFactory(t *testing.T) {
 		}
 	})
 
+	t.Run("getPodData_sidecar", func(t *testing.T) {
+		lookup := make(map[string]pod)
+		cr := Collector{
+			lookup:      &lookup,
+			lookupMutex: &sync.RWMutex{},
+		}
+		always := v1.ContainerRestartPolicyAlways
+		p := v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: "sidecar-pod", Namespace: "ns1"},
+			Status:     v1.PodStatus{Phase: v1.PodRunning},
+			Spec: v1.PodSpec{
+				InitContainers: []v1.Container{
+					{Name: "init"},
+					{Name: "sidecar", RestartPolicy: &always},
+				},
+				Containers: []v1.Container{{Name: "c1"}},
+			},
+		}
+		cr.getPodData(p)
+		cr.lookupMutex.RLock()
+		pd := (*cr.lookup)[podKey("ns1", "sidecar-pod")]
+		cr.lookupMutex.RUnlock()
+		if len(pd.containers) != 2 || pd.containers[0].name != "c1" || pd.containers[1].name != "sidecar" {
+			t.Fatalf("expected containers c1 and sidecar, got %+v", pd.containers)
+		}
+	})
+
 }
