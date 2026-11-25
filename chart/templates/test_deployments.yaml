@@ -14,6 +14,20 @@ spec:
       labels:
         name: shrink-test
     spec:
+      initContainers:
+        - name: sidecar-test
+          image: busybox:stable
+          command: ["sleep", "infinity"]
+          restartPolicy: Always
+          resources:
+            limits:
+              ephemeral-storage: "60Mi"
+          volumeMounts:
+            - mountPath: /sidecache
+              name: cache-volume-1
+        - name: init-plain
+          image: busybox:stable
+          command: ["true"]
       containers:
         - image: "{{ .Values.dev.shrink.image }}"
           imagePullPolicy: "{{ .Values.dev.shrink.imagePullPolicy }}"

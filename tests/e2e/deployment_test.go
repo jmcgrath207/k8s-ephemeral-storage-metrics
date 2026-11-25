@@ -618,6 +618,17 @@ var _ = ginkgo.Describe("Test Metrics\n", func() {
 			}, false)
 		})
 	})
+	ginkgo.Context("Test Native Sidecar\n", func() {
+		ginkgo.Specify("\nSidecar containers get limit and volume percentage series", func() {
+			checkPrometheus([]string{
+				`ephemeral_storage_container_limit_percentage{container="sidecar-test",node_name="minikube",pod_name="shrink-test-`,
+				`ephemeral_storage_container_volume_limit_percentage{container="sidecar-test",mount_path="/sidecache",node_name="minikube",pod_name="shrink-test-`,
+			}, false)
+			checkPrometheus([]string{
+				`container="init-plain"`,
+			}, true)
+		})
+	})
 	ginkgo.Context("Test Scale Down\n", func() {
 		ginkgo.Specify("\nScale Down test to make sure pods and nodes are evicted", func() {
 			nodeReconnect()
