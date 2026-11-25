@@ -3,7 +3,7 @@
 
 GITROOT ?= $(shell pwd)
 DEPLOYMENT_NAME = ephemeral-metrics
-K8S_VERSION ?= 1.28.0
+K8S_VERSION ?= 1.30.0
 PROMETHEUS_OPERATOR_VERSION ?= v0.65.1
 
 ## Location to install dependencies to
