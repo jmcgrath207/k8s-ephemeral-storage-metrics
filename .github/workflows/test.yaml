@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@v4
         with:
-          go-version: '1.26'
+          go-version: '1.27'
       - name: Run unit tests
         run: |
           go vet ./...
@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@v4
         with:
-          go-version: '1.26'
+          go-version: '1.27'
       - name: Install Minikube
         run: |
           wget https://github.com/kubernetes/minikube/releases/download/v1.38.1/minikube-linux-amd64
